@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>D1: Solution design &amp; architecture patterns</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-lesson="0001-solution-design-patterns">
+
+<nav class="crumbs"><a href="../index.html">Course map</a> · <a href="../reference/blueprint.html">Exam blueprint</a> · <a href="../reference/patterns.html">Patterns cheat sheet</a> · Next: <a href="0002-models-prompting-context.html">D2</a></nav>
+
+<div class="kicker">Lesson 1 · Domain 1 · 17% of the exam</div>
+<h1>Solution design &amp; architecture patterns</h1>
+<p class="subtitle">The exam's favourite move: give a business problem, ask for the <em>simplest</em> pattern that solves it.</p>
+
+<div class="meta">
+  <span>≈ 18 minutes</span>
+  <span>1 recall + 13 questions + 1 scenario</span>
+  <span><span class="tag d1">D1</span></span>
+</div>
+
+<div class="callout source">
+<p><strong>How the real exam asks.</strong> 63 scenario items in 120 min (≈ 1 min 54 s each). Some are <em>multiple response</em>: the item says how many to pick. Pass = scaled 720/1000. <span class="cite"><a href="https://everpath-course-content.s3-accelerate.amazonaws.com/instructor%2F6nizmqk8tpzpfjvt6qmmav7rh%2Fpublic%2F1783542810%2FClaude+Certified+Architect+%E2%80%93+Professional+Exam+Guide.pdf">Exam guide §5</a>.</span> This lesson's questions copy that style.</p>
+</div>
+
+<!-- ============================================================ -->
+<h2>1 · Recall first</h2>
+
+<div class="recall" data-topic="d1" data-title="Patterns recall">
+  <p class="prompt">Without looking: (a) What separates a <em>workflow</em> from an <em>agent</em>? (b) What is the <em>augmented LLM</em>? (c) Name the five workflow patterns from Anthropic's "Building effective agents", with a one-line "use when" each.</p>
+  <textarea placeholder="(a) …&#10;(b) …&#10;(c) 1. … 2. … 3. … 4. … 5. …"></textarea>
+  <div class="model">
+    <p>(a) <strong>Workflow</strong>: LLMs and tools orchestrated through <em>predefined code paths</em>. <strong>Agent</strong>: the LLM <em>dynamically directs</em> its own process and tool use. <br>
+    (b) An LLM enhanced with <strong>retrieval, tools, and memory</strong>, the building block of every agentic system.<br>
+    (c) <strong>Prompt chaining</strong>: fixed sequential steps; trade latency for accuracy. <strong>Routing</strong>: classify input, send to a specialised handler. <strong>Parallelization</strong>: independent subtasks (sectioning) or same task many times (voting). <strong>Orchestrator-workers</strong>: subtasks not known in advance; a lead decides them per input. <strong>Evaluator-optimizer</strong>: generate → critique loop when criteria are clear and iteration measurably helps.</p>
+    <ul class="rubric">
+      <li>Predefined code paths vs model-directed control</li>
+      <li>Augmented LLM = retrieval + tools + memory</li>
+      <li>Named at least 4 of the 5 patterns</li>
+      <li>Correct "use when" for orchestrator-workers vs prompt chaining</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>2 · The ideas that matter</h2>
+
+<p><strong>Start simple, add complexity only when it pays.</strong> Anthropic's core advice: find "the simplest solution possible, and only increasing complexity when needed". Often a single augmented-LLM call with retrieval and good examples is enough. <span class="cite"><a href="https://www.anthropic.com/engineering/building-effective-agents">Building effective agents</a>.</span> On the exam, the over-engineered option (autonomous multi-agent for a fixed 3-step task) is a classic distractor.</p>
+
+<p><strong>Pick by predictability.</strong> If you can write the steps down in advance, use a <em>workflow</em>: cheaper, faster, testable. Use an <em>agent</em> for open-ended problems where "it's difficult or impossible to predict the required number of steps". Agents cost more and risk <em>compounding errors</em>, so they need sandboxed testing, guardrails and stopping conditions (e.g. max iterations). <span class="cite"><a href="https://www.anthropic.com/engineering/building-effective-agents">Ibid.</a></span></p>
+
+<table>
+<thead><tr><th>Signal in the scenario</th><th>Pattern</th></tr></thead>
+<tbody>
+<tr><td>Fixed steps; check output between steps</td><td>Prompt chaining (+ programmatic gates)</td></tr>
+<tr><td>Distinct input categories; or easy vs hard queries to cheap vs strong model</td><td>Routing</td></tr>
+<tr><td>Independent aspects at once (e.g. guardrail screen alongside answer)</td><td>Parallelization: sectioning</td></tr>
+<tr><td>Same task several times for confidence (e.g. vulnerability review)</td><td>Parallelization: voting</td></tr>
+<tr><td>Can't know subtasks until you see the input (multi-file code change, multi-source research)</td><td>Orchestrator-workers</td></tr>
+<tr><td>Clear quality criteria; feedback improves output</td><td>Evaluator-optimizer</td></tr>
+<tr><td>Open-ended, unpredictable step count, trusted environment</td><td>Autonomous agent</td></tr>
+</tbody>
+</table>
+
+<p><strong>Where you build it (current platform options).</strong> The patterns don't depend on the platform, but the scenario often decides it. <em>Messages API / Client SDK</em>: you write the tool loop yourself (or use the beta tool runner); you get full control. <em>Claude Agent SDK</em> (formerly Claude Code SDK): Claude Code's agent loop, tools, hooks, subagents and permissions as a Python/TypeScript library, running in a process you operate. <em>Claude Managed Agents</em> (beta): Anthropic hosts the harness and the sandbox, for long-running and asynchronous work. It is not currently eligible for ZDR or a HIPAA BAA. <em>Claude Code CLI</em>: interactive and one-off developer work. <span class="cite"><a href="https://code.claude.com/docs/en/agent-sdk/overview">Agent SDK overview</a>; <a href="https://platform.claude.com/docs/en/managed-agents/overview">Managed Agents overview</a>.</span> "Building effective agents" (Dec 2024) is still the source for the pattern vocabulary. Its own note says the tooling has changed since then and points to Managed Agents. <span class="cite"><a href="https://www.anthropic.com/engineering/building-effective-agents">Building effective agents</a>.</span></p>
+
+<p><strong>Multi-agent is a cost decision, and usually the wrong one.</strong> Anthropic's current guidance (Jan 2026) is that most teams don't need it: single agents handle most work, and multi-agent typically uses <strong>3–10× the tokens</strong> of a single agent for the same task. It pays off in three cases: <em>context pollution</em> is hurting performance, tasks <em>can run in parallel</em>, or <em>specialization</em> improves tool selection or focus. It fits badly with tightly coupled components and with sequential phases of the same work. <span class="cite"><a href="https://claude.com/blog/building-multi-agent-systems-when-and-how-to-use-them">When to use multi-agent systems</a>.</span> The best-known data point is historical. In June 2025, Anthropic's research system (Claude Opus 4 lead + Claude Sonnet 4 subagents) beat single-agent Opus 4 by 90.2% on an internal eval, using ~15× the tokens of chat (~4× for a single agent). The same post lists shared-context and many-dependency domains, and most coding tasks, as poor fits. <span class="cite"><a href="https://www.anthropic.com/engineering/multi-agent-research-system">Multi-agent research system</a>.</span></p>
+
+<p><strong>Decomposition: split by context, not by job title.</strong> Split work where the <em>context</em> separates, not by problem phase. A planner → coder → tester chain is a lossy "telephone game"; "an agent handling a feature should also handle its tests". A dedicated <em>verification subagent</em> works well, but watch for the "early victory" problem: outputs marked as passing without thorough testing. <span class="cite"><a href="https://claude.com/blog/building-multi-agent-systems-when-and-how-to-use-them">Ibid.</a></span> Each delegated task needs an <em>objective, output format, tool and source guidance, and clear boundaries</em>; vague tasks caused duplicated work. Scale effort to complexity (a simple fact-find is 1 agent / 3–10 tool calls). Subagents return a condensed summary (often 1,000–2,000 tokens), which keeps the lead's context clean. <span class="cite"><a href="https://www.anthropic.com/engineering/multi-agent-research-system">Multi-agent research system</a>; <a href="https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents">Context engineering</a>.</span></p>
+
+<p><strong>Orchestration options on the platform today.</strong> Managed Agents offers three modes. <em>Subagents</em>: the agent delegates and can follow up with each one; delegation is one level deep. <em>Dynamic workflows</em>: the agent writes a program that runs many agents in phases and merges their results; the docs recommend it for most multi-agent work (audits, migrations, deep research). <em>Advisor</em>: one agent does the work and consults a stronger model at key moments (escalation). Cap spend with a session budget. <span class="cite"><a href="https://platform.claude.com/docs/en/managed-agents/multiagent-orchestration">Multiagent orchestration</a>.</span> For agents that run across many context windows, give them an initializer session, a progress file plus git history, and a feature list worked one feature at a time. <span class="cite"><a href="https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents">Long-running agent harnesses (Nov 2025)</a>.</span></p>
+
+<p><strong>End-to-end means closing the loop.</strong> The blueprint frames architecture as <em>input → processing → output → feedback loops</em>. The feedback leg (user corrections, outcomes, human review results) feeds the eval set and the next prompt or retrieval iteration. Without it you can't prove improvement. <span class="cite"><a href="../sources/ccar-p-exam-guide.pdf">Exam guide §6, D1</a>.</span></p>
+
+<p><strong>Start from business value, not the model.</strong> The blueprint names value pillars: <em>efficiency, transformation, productivity, cost, performance SLAs</em>. Translate the problem into a measurable target (handle time, cost per ticket, p95 latency) before picking a pattern. <span class="cite">Exam guide §6. The pillar detail lives in the Partner Academy course; your course notes win here.</span></p>
+
+<!-- ============================================================ -->
+<h2>3 · Practice</h2>
+
+<div class="q" data-topic="d1" data-answer="0">
+  <p class="stem">An insurer receives claim emails in four known categories, each needing a different handling prompt and tool set. Most emails are simple; a few are complex. Which design best fits?</p>
+  <ol class="options">
+    <li>A classifier routes each email to a category-specific handler</li>
+    <li>An orchestrator spawns dynamic workers for every incoming email</li>
+    <li>An evaluator-optimizer loop rewrites each email until it's approved</li>
+    <li>One autonomous agent holds every tool for all categories</li>
+  </ol>
+  <div class="explain"><strong>Routing.</strong> Distinct, known categories handled better separately. It also lets simple emails go to a cheaper, faster model. Orchestrator-workers is for subtasks you <em>can't</em> know in advance. One agent with every tool is tool bloat plus needless autonomy. <span class="cite"><a href="https://www.anthropic.com/engineering/building-effective-agents">Building effective agents</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d1" data-answer="0">
+  <p class="stem">A finance team wants an "autonomous agent" to produce a monthly report. Every month it's the same four steps: pull figures, compute variances, draft commentary, format. What do you recommend?</p>
+  <ol class="options">
+    <li>A prompt chain with programmatic checks between fixed steps</li>
+    <li>A multi-agent system with one subagent assigned per step</li>
+    <li>An autonomous agent with a high maximum iteration limit</li>
+    <li>An orchestrator that decides the steps fresh every month</li>
+  </ol>
+  <div class="explain">Steps are known in advance, so a <strong>workflow</strong> (prompt chaining) is simpler, cheaper, and testable. Gates between steps (e.g. "do the variances sum?") catch errors early. Autonomy buys nothing here and adds cost and compounding-error risk. A subagent per step is the "sequential phases" anti-pattern; an orchestrator re-deciding known steps is needless. <span class="cite"><a href="https://www.anthropic.com/engineering/building-effective-agents">Building effective agents</a>; <a href="https://claude.com/blog/building-multi-agent-systems-when-and-how-to-use-them">When to use multi-agent systems</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d1" data-answer="0">
+  <p class="stem">A coding assistant must implement a feature request. The files that need changing depend entirely on the request. Which pattern fits?</p>
+  <ol class="options">
+    <li>Orchestrator-workers, with subtasks decided by the lead per request</li>
+    <li>Prompt chaining, with a fixed sequence of file edits</li>
+    <li>Parallelization by voting, with every file edited three times</li>
+    <li>Routing, with one specialist handler assigned per repository file</li>
+  </ol>
+  <div class="explain"><strong>Orchestrator-workers</strong>: "subtasks aren't pre-defined, but determined by the orchestrator based on the specific input". Anthropic's own example is multi-file coding changes. <span class="cite"><a href="https://www.anthropic.com/engineering/building-effective-agents">Ibid.</a></span></div>
+</div>
+
+<div class="q" data-topic="d1" data-answer="0">
+  <p class="stem">Three independent prompts review the same contract for risky clauses. A clause is flagged when at least two agree. This is…</p>
+  <ol class="options">
+    <li>Parallelization: voting</li>
+    <li>Parallelization: sectioning</li>
+    <li>Evaluator-optimizer loop</li>
+    <li>Orchestrator-workers pattern</li>
+  </ol>
+  <div class="explain"><strong>Voting</strong>: the same task several times to get diverse outputs and higher confidence. <em>Sectioning</em> splits <em>different</em> independent subtasks, e.g. a guardrail screen running alongside the main answer. Evaluator-optimizer is a generate-critique loop, not independent votes; orchestrator-workers decides subtasks at run time. <span class="cite"><a href="https://www.anthropic.com/engineering/building-effective-agents">Building effective agents</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d1" data-answer="0">
+  <p class="stem">A translation service has clear quality criteria (terminology list, tone guide), and human reviewers report that a second pass with feedback reliably improves drafts. Which pattern adds the most value?</p>
+  <ol class="options">
+    <li>Evaluator-optimizer: one call drafts, another critiques in a loop</li>
+    <li>Routing: send each document to a translator by length</li>
+    <li>Sectioning: split each document and translate parts in parallel</li>
+    <li>Autonomous agent: let the model choose its own process</li>
+  </ol>
+  <div class="explain">The two preconditions for <strong>evaluator-optimizer</strong> are met: clear evaluation criteria, and iteration that measurably helps. Literary translation is Anthropic's example. <span class="cite"><a href="https://www.anthropic.com/engineering/building-effective-agents">Ibid.</a></span></div>
+</div>
+
+<div class="q" data-topic="d1" data-answer="0,1">
+  <p class="stem">For which <strong>two</strong> workloads is a multi-agent (orchestrator + parallel subagents) design a poor fit?</p>
+  <ol class="options">
+    <li>Tightly interdependent tasks where every agent needs the same shared context</li>
+    <li>A typical coding task with few genuinely parallelisable subtasks inside it</li>
+    <li>Broad research across many independent directions at once, with high value</li>
+    <li>Gathering information that far exceeds what fits in one context window</li>
+  </ol>
+  <div class="explain">Anthropic lists <strong>shared-context / many-dependency domains</strong> and <strong>most coding tasks</strong> as poor fits; the Jan 2026 guidance adds <em>tightly coupled components</em>. Parallel, breadth-first research and information beyond one window are exactly where multi-agent shines (parallelism and protecting context are two of its three good-fit cases). <span class="cite"><a href="https://www.anthropic.com/engineering/multi-agent-research-system">Multi-agent research system</a>; <a href="https://claude.com/blog/building-multi-agent-systems-when-and-how-to-use-them">When to use multi-agent systems</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d1" data-answer="0">
+  <p class="stem">A sponsor asks why the multi-agent prototype's bill is so much higher than the single-agent version's. Per Anthropic's current guidance, multi-agent typically uses roughly how many times the tokens of a single agent for the same task?</p>
+  <ol class="options">
+    <li>About 3–10×</li>
+    <li>About 1–2×</li>
+    <li>About 20–40×</li>
+    <li>About 50–100×</li>
+  </ol>
+  <div class="explain"><strong>3–10×</strong> a single agent (Jan 2026). 1–2× understates the cost; 20× and above overstates it. Don't confuse this with the June 2025 research-system figures, which compare against <em>chat</em>: ~4× for one agent, ~15× for multi-agent. The architect's answer: multi-agent only makes sense where the task's value pays for it. <span class="cite"><a href="https://claude.com/blog/building-multi-agent-systems-when-and-how-to-use-them">When to use multi-agent systems</a>; <a href="https://www.anthropic.com/engineering/multi-agent-research-system">Multi-agent research system</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d1" data-answer="0,1">
+  <p class="stem">Your orchestrator's subagents keep duplicating each other's searches. Which <strong>two</strong> additions to each delegated task description most directly fix this?</p>
+  <ol class="options">
+    <li>A specific objective, with clear boundaries from the other subagents</li>
+    <li>The exact output format that the lead agent expects back</li>
+    <li>The lead agent's entire conversation history, copied in full verbatim</li>
+    <li>An instruction to make as many tool calls as possible</li>
+  </ol>
+  <div class="explain">Anthropic fixed duplicated work by giving each subagent an <strong>objective, output format, guidance on tools and sources, and clear task boundaries</strong>. Dumping the full history bloats the subagent's context. "As many calls as possible" makes the duplication worse. <span class="cite"><a href="https://www.anthropic.com/engineering/multi-agent-research-system">Ibid.</a></span></div>
+</div>
+
+<div class="q" data-topic="d1" data-answer="0">
+  <p class="stem">Why should subagents return a condensed summary (often 1–2k tokens) to the lead instead of their full working transcript?</p>
+  <ol class="options">
+    <li>It keeps the lead's limited context focused on what matters</li>
+    <li>The API forbids passing long transcripts between two separate agents</li>
+    <li>Summaries are the only thing that makes subagent outputs cacheable</li>
+    <li>Full transcripts would force the lead onto a smaller model</li>
+  </ol>
+  <div class="explain">Context is a finite <strong>attention budget</strong>; recall degrades as it fills ("context rot"). Subagents explore deeply in their own clean context and hand back only the distilled result. The other options are invented: no API rule bans long transcripts, caching isn't tied to summaries, and transcript length doesn't dictate the lead's model. <span class="cite"><a href="https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents">Context engineering</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d1" data-answer="0">
+  <p class="stem">A team built a planner agent, then a coder agent, then a tester agent, each handing off to the next. Bugs get lost between handoffs, and the tester keeps reporting "all pass" too early. What is the best redesign?</p>
+  <ol class="options">
+    <li>One agent owns each feature and its tests; add a separate verification agent</li>
+    <li>Add a fourth reviewer agent between the coder and tester in the chain</li>
+    <li>Pass every agent's full transcript forward so that no context is ever lost</li>
+    <li>Move all three agents to the most capable model to reduce handoff errors</li>
+  </ol>
+  <div class="explain">This is <strong>problem-centric</strong> decomposition (sequential phases of the same work), a lossy "telephone game". Split by context instead: "an agent handling a feature should also handle its tests". A dedicated <strong>verification subagent</strong> addresses the "early victory" problem. Another handoff adds one more lossy hop. Full transcripts cause context pollution. A bigger model doesn't fix a bad split. <span class="cite"><a href="https://claude.com/blog/building-multi-agent-systems-when-and-how-to-use-them">When to use multi-agent systems</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d1" data-answer="0">
+  <p class="stem">A client wants an agent that runs for hours on document migrations in a sandbox, with scheduled runs. They don't want to build or host the agent loop, sandbox or tool execution. No regulated health data is involved. Which option fits best?</p>
+  <ol class="options">
+    <li>Claude Managed Agents, with the harness and the sandbox hosted by Anthropic</li>
+    <li>The Messages API, with a custom tool loop written and hosted in-house</li>
+    <li>The Claude Agent SDK, embedded in a service the client operates itself</li>
+    <li>The Claude Code CLI, run interactively by an engineer during each migration</li>
+  </ol>
+  <div class="explain"><strong>Managed Agents</strong> is the hosted harness, built for long-running, asynchronous and scheduled work, with no loop or sandbox to build. The Messages API means writing your own loop. The Agent SDK runs in a process <em>you</em> operate. The CLI is for interactive developer use. Caveat: Managed Agents is in beta and not currently eligible for ZDR or a HIPAA BAA, so regulated health data would change the answer. <span class="cite"><a href="https://platform.claude.com/docs/en/managed-agents/overview">Managed Agents overview</a>; <a href="https://code.claude.com/docs/en/agent-sdk/overview">Agent SDK overview</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d1" data-answer="0">
+  <p class="stem">A retail client says, "We want to use Claude for customer service." What should the architect establish first?</p>
+  <ol class="options">
+    <li>The measurable business outcome, like handle time or cost per contact</li>
+    <li>The most capable Claude model available, so quality is never limited</li>
+    <li>A multi-agent prototype, so stakeholders can see what is really possible</li>
+    <li>The specific vector database product the solution will be built around</li>
+  </ol>
+  <div class="explain">Translate the business problem first: which <strong>value pillar</strong> (efficiency, cost, SLA…) and which metric proves success. Model, pattern and tooling follow from that. Starting from technology (top model, multi-agent demo, a vector DB) is the classic wrong answer in D1 and D6. <span class="cite"><a href="../sources/ccar-p-exam-guide.pdf">Exam guide §6, D1</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d1" data-answer="0">
+  <p class="stem">A support-drafting system is live. Agents edit Claude's drafts before sending, but nobody captures those edits. Which part of the end-to-end architecture is missing?</p>
+  <ol class="options">
+    <li>The feedback loop that turns edits into eval data and improvements</li>
+    <li>The input stage that normalises tickets before they reach the model</li>
+    <li>The processing stage that selects the correct tools for each ticket</li>
+    <li>The output stage that formats drafts for the support agents' interface</li>
+  </ol>
+  <div class="explain">Input → processing → output → <strong>feedback loop</strong>. Human edits are free, high-quality signal: diff them to build eval cases and find prompt or retrieval gaps. Without that loop, the system can't measurably improve. <span class="cite"><a href="../sources/ccar-p-exam-guide.pdf">Exam guide §6</a>.</span></div>
+</div>
+
+<!-- ============================================================ -->
+<h2>4 · Architect scenario</h2>
+
+<div class="callout">
+<p><strong>Hollis Freight</strong>, a mid-size logistics company, gets 40k customer emails a month. Roughly 60% are "where's my shipment?" (answerable from the tracking API), 25% are quote requests (pricing API plus business rules), and 15% are damage claims. Claims need evidence gathering across photos, delivery logs and driver notes, and can end in payouts up to $5k. The COO cares about two things: cost per email (now $4.10 with human agents) and a 4-hour first-response SLA that they currently miss 30% of the time.</p>
+</div>
+
+<div class="recall" data-topic="d1" data-title="Scenario: Hollis Freight design">
+  <p class="prompt"><strong>(8 min)</strong> Sketch the architecture. (a) Which pattern for the overall flow and for each email type, and why? (b) Where, if anywhere, is an agent justified? (c) How do you close the feedback loop? (d) Which value pillars and metrics do you report to the COO?</p>
+  <textarea placeholder="(a) … (b) … (c) … (d) …"></textarea>
+  <div class="model">
+    <p>(a) <strong>Routing</strong> at the front: a fast, cheap model classifies each email into three known categories. <strong>Status</strong>: a single augmented-LLM call with a tracking-lookup tool; no agent needed. <strong>Quotes</strong>: a <strong>prompt chain</strong>: extract fields → call pricing API → apply rules in code → draft, with a programmatic gate that the quoted price matches the API.<br>
+    (b) <strong>Claims</strong> are the only open-ended path. Evidence gathering varies per case, so an agent (or orchestrator-workers over the evidence sources) is defensible. It needs a max-iteration stop, read-only tools, and <strong>human approval before any payout</strong>: high-impact, irreversible action. Build it single-agent first; add subagents only if evidence-gathering context starts polluting the main one. Host it on the Agent SDK in your own service, or on Managed Agents if you'd rather not run the loop and sandbox yourself.<br>
+    (c) Log every human edit, override and claim decision. Turn them into eval cases. Review weekly and iterate on prompts and retrieval. Track the reclassification rate on routing.<br>
+    (d) <strong>Cost</strong>: cost per email vs $4.10. <strong>Performance SLA</strong>: % first responses within 4 h. <strong>Efficiency</strong>: automation or deflection rate and handle time. Optionally <strong>quality</strong>: CSAT and claim-decision accuracy vs human baseline.</p>
+    <ul class="rubric">
+      <li>Routing front door on a small model; known categories</li>
+      <li>Workflows (single call / chain) for status and quotes, not agents</li>
+      <li>Agent only for claims, bounded (stop condition, limited tools)</li>
+      <li>Human-in-the-loop before payouts</li>
+      <li>Feedback loop: human edits/decisions → eval set → iteration</li>
+      <li>Metrics tied to the COO's pillars: cost per email and SLA %</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>5 · Go deeper</h2>
+
+<div class="callout source">
+<p><strong>Primary sources (read these):</strong> Anthropic, <a href="https://www.anthropic.com/engineering/building-effective-agents">"Building effective agents"</a> (Dec 2024). It's short and gives the pattern vocabulary the D1 blueprint uses; skip its dated tooling section. Then <a href="https://claude.com/blog/building-multi-agent-systems-when-and-how-to-use-them">"When to use multi-agent systems (and when not to)"</a> (Jan 2026) for current multi-agent guidance, and the <a href="https://platform.claude.com/docs/en/managed-agents/multiagent-orchestration">Managed Agents multiagent orchestration docs</a> for today's platform options. <a href="https://www.anthropic.com/engineering/multi-agent-research-system">"How we built our multi-agent research system"</a> (Jun 2025) is still useful on delegation, but it's a case study of Claude 4-era models.</p>
+</div>
+
+<div class="callout ask">
+<p><strong>Ask your teacher.</strong> Anything unclear, or you disagree with an answer? Ask in the chat. If your Partner Academy notes say otherwise, tell me and the lesson gets fixed.</p>
+</div>
+
+<div id="scoreboard" class="scoreboard"></div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

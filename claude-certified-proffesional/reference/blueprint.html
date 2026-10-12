@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CCAR-P blueprint &amp; format</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<nav class="crumbs"><a href="../index.html">Course map</a></nav>
+<div class="kicker">Reference</div>
+<h1>CCAR-P blueprint &amp; format</h1>
+<p class="subtitle">From the official exam guide v1.0 (July 2026). The guide wins any dispute. <a href="../sources/ccar-p-exam-guide.pdf">Local PDF</a>.</p>
+
+<h2>Format</h2>
+<table><tbody>
+<tr><th>Items</th><td>63 · multiple choice + multiple response (item states how many to pick)</td></tr>
+<tr><th>Time</th><td>120 min (≈ 1:54 per item)</td></tr>
+<tr><th>Pass</th><td>Scaled 720 / 100–1000 · criterion-referenced · domain % shown on report, not used for pass/fail</td></tr>
+<tr><th>Delivery</th><td>Pearson VUE, online or test center · closed book · NDA</td></tr>
+<tr><th>Fee / validity</th><td>$175 (partner discounts) · 12 months · free on-time renewal assessment</td></tr>
+<tr><th>Retakes</th><td>Wait 14 / 30 / 90 days · max 4 attempts per rolling 12 months</td></tr>
+<tr><th>Reschedule</th><td>Guide: ≥24 h · FAQ: ≥48 h. Assume 48 h.</td></tr>
+<tr><th>Eligibility</th><td>Claude Partner Network employees (company email)</td></tr>
+</tbody></table>
+
+<h2>Domains &amp; task statements</h2>
+
+<h3><span class="tag d1">D1 · 17%</span> Solution Design &amp; Architecture</h3>
+<ul><li>Translate business problems into Claude-based AI solutions</li><li>Design end-to-end architectures (input → processing → output → feedback loops)</li><li>Select architectural patterns (workflow, agentic, augmented LLM)</li><li>Design multi-agent systems and orchestration strategies</li><li>Apply decomposition techniques</li><li>Align to business value pillars (efficiency, transformation, productivity, cost, performance SLAs)</li></ul>
+
+<h3><span class="tag d2">D2 · 13%</span> Claude Models, Prompting &amp; Context Engineering</h3>
+<ul><li>Select Claude models based on trade-offs</li><li>Design system prompts, templates, guardrails</li><li>Apply zero-shot, few-shot, chain-of-thought</li><li>Optimize context windows and token usage</li><li>Prompt reuse (caching, modular prompts, Skills)</li></ul>
+
+<h3><span class="tag d3">D3 · 19%</span> Integration</h3>
+<ul><li>Evaluate tool/agent configuration for capability bloat</li><li>Analyze authN/authZ requirements for security gaps</li><li>Evaluate accuracy–latency trade-offs</li><li>Observability challenges and monitoring at scale</li><li>RAG pipeline: chunking and indexing</li><li>Retrieval strategies matched to data shape and query pattern</li><li>Select integration mechanism (MCP, API/CLI, agent-to-agent)</li><li>Progressive discovery vs monolithic context</li></ul>
+
+<h3><span class="tag d4">D4 · 16%</span> Evaluation, Testing &amp; Optimization</h3>
+<ul><li>Metrics (accuracy, latency, cost, safety, security)</li><li>Eval datasets and test frameworks, mixed methods</li><li>A/B testing and iteration</li><li>Diagnose issues (prompt failure, hallucination, model mismatch)</li><li>Optimize token use, latency, cost–performance</li><li>Monitor with logging and observability tools</li></ul>
+
+<h3><span class="tag d5">D5 · 14%</span> Governance, Safety &amp; Risk Management</h3>
+<ul><li>Guardrails and safety controls</li><li>Risks, limitations, failure modes of LLM systems</li><li>Human-in-the-loop validation</li><li>Compliance (GDPR, HIPAA, FedRAMP)</li><li>Ethics (bias, fairness, transparency)</li></ul>
+
+<h3><span class="tag d6">D6 · 14%</span> Stakeholder Communication &amp; Lifecycle</h3>
+<ul><li>Structured discovery and requirements</li><li>Communicate decisions and trade-offs</li><li>Stakeholder feedback loops, expectations, SLAs</li><li>Document architectures, implementation guidance</li><li>Lifecycle: discovery → design → handoff → monitoring → iteration</li></ul>
+
+<h3><span class="tag d7">D7 · 7%</span> Developer Productivity &amp; Operational Enablement</h3>
+<ul><li>Configure Claude tools/environments for teams (e.g. Claude Code)</li><li>Improve developer workflows with AI tooling</li><li>Support debugging and operational issue resolution</li></ul>
+
+<h2>Answer heuristics from the official samples</h2>
+<ul>
+<li><strong>Remove, don't monitor:</strong> least privilege = drop unneeded tools, not log or confirm them.</li>
+<li><strong>Static first, then cache:</strong> stable prompt prefix + prompt caching cuts both cost and latency.</li>
+<li><strong>Diagnose what changed:</strong> a symptom after a doc refresh → retrieval/indexing first, not the model.</li>
+<li>"Bigger model" is rarely the fix for a security or retrieval problem.</li>
+</ul>
+</body>
+</html>

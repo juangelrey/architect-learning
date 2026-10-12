@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>D2: Models, prompting &amp; context engineering</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-lesson="0002-models-prompting-context">
+
+<nav class="crumbs"><a href="../index.html">Course map</a> · <a href="../reference/blueprint.html">Exam blueprint</a> · <a href="../reference/models-prompting.html">Models &amp; prompting cheat sheet</a> · Prev: <a href="0001-solution-design-patterns.html">Lesson 1</a> · Next: <a href="0003-integration-tools-protocols.html">Lesson 3</a></nav>
+
+<div class="kicker">Lesson 2 · Domain 2 · 13% of the exam</div>
+<h1>Models, prompting &amp; context engineering</h1>
+<p class="subtitle">Pick the smallest model and effort that pass your evals. Then put the right tokens, in the right order, into a context you treat as a scarce budget.</p>
+
+<div class="meta">
+  <span>≈ 19 minutes</span>
+  <span>3 review + 1 recall + 13 questions + 1 scenario</span>
+  <span><span class="tag d2">D2</span> <span class="tag d1">D1 review</span></span>
+</div>
+
+<div class="callout source">
+<p><strong>Current as of Oct 2026.</strong> Model names, prices, limits and feature status below match the Claude docs as checked on 2026-10-12. <span class="cite"><a href="https://platform.claude.com/docs/en/models/overview">Models overview</a>.</span></p>
+</div>
+
+<!-- ============================================================ -->
+<h2>0 · Spaced review</h2>
+
+<div class="q" data-topic="d1" data-answer="0">
+  <p class="stem">A bank's onboarding assistant runs the same five checks for every applicant, with a compliance gate after the third check. Which design fits best?</p>
+  <ol class="options">
+    <li>A prompt chain with a programmatic gate after step three</li>
+    <li>An autonomous agent that plans the checks for each applicant</li>
+    <li>An orchestrator that spawns a fresh worker per applicant check</li>
+    <li>A voting ensemble that runs every check three separate times</li>
+  </ol>
+  <div class="explain">Steps are known in advance, so a <strong>workflow</strong> (prompt chaining with gates) beats autonomy: cheaper, testable, no compounding-error risk. Orchestrator-workers is for subtasks you <em>can't</em> predict. Voting buys confidence, not a gate. <span class="cite"><a href="https://www.anthropic.com/engineering/building-effective-agents">Building effective agents</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d1" data-answer="0">
+  <p class="stem">A sponsor wants a multi-agent system for a refactoring task where every step depends on the previous edit. What is the best response?</p>
+  <ol class="options">
+    <li>Use a single agent, since tightly dependent steps suit multi-agent poorly</li>
+    <li>Use multi-agent, since parallel subagents will always outperform a single agent</li>
+    <li>Use multi-agent, but copy the lead's full history into every subagent</li>
+    <li>Use voting, since three agents agreeing makes each code edit safer</li>
+  </ol>
+  <div class="explain">Anthropic names <strong>shared-context, many-dependency</strong> work and most coding as poor fits for multi-agent, which also costs ~15× chat tokens. Copying full history into subagents defeats the point of clean contexts. <span class="cite"><a href="https://www.anthropic.com/engineering/multi-agent-research-system">Multi-agent research system</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d1" data-answer="0">
+  <p class="stem">A lead agent delegates "research competitors" to five subagents, and their results overlap heavily. What is the most direct fix?</p>
+  <ol class="options">
+    <li>Give each subagent a distinct objective, boundaries and output format</li>
+    <li>Increase the number of subagents so coverage becomes more complete</li>
+    <li>Switch every subagent to the largest model at maximum effort</li>
+    <li>Pass every subagent the complete conversation history of the lead</li>
+  </ol>
+  <div class="explain">Duplicated work came from vague delegation. The fix is a task spec: <strong>objective, output format, tool guidance, boundaries</strong>. More agents or bigger models multiply the overlap. <span class="cite"><a href="https://www.anthropic.com/engineering/multi-agent-research-system">Ibid.</a></span></div>
+</div>
+
+<!-- ============================================================ -->
+<h2>1 · Recall first</h2>
+
+<div class="recall" data-topic="d2" data-title="Models & caching recall">
+  <p class="prompt">Without looking: (a) Name the four current general-availability Claude models from most to least capable, with a "use when" each. (b) What is <em>effort</em>, and why is it often a better lever than switching model? (c) Give the prompt-cache prefix order, the write/read multipliers, and what breaks a cache hit. (d) What are the three levels of Agent Skills progressive disclosure?</p>
+  <textarea placeholder="(a) …&#10;(b) …&#10;(c) …&#10;(d) …"></textarea>
+  <div class="model">
+    <p>(a) <strong>Fable 5.1</strong>: demanding reasoning, long-horizon agentic work. <strong>Opus 5.5</strong>: the default starting point; long-running agentic coding and knowledge work. <strong>Sonnet 5.5</strong>: best speed and intelligence balance. <strong>Haiku 5.5</strong>: high-volume, latency-sensitive classification, extraction, routing, subagents. All have a 1M context window and 128k max output.<br>
+    (b) <code>output_config.effort</code> (low → medium → high → xhigh → max) controls how many tokens Claude spends on thinking, tool calls and text, all within one model. The docs say tuning it "is often a better lever than switching models".<br>
+    (c) <strong>tools → system → messages</strong>. 5-min write 1.25×, 1-h write 2×, read 0.1× by default (0.05× on Opus 5.5 and Sonnet 5.5, 0.025× on Fable 5.1). A hit needs a 100% identical prefix, so any change invalidates that level and everything after it.<br>
+    (d) <strong>Metadata</strong> (name + description, ~100 tokens, always loaded). <strong>SKILL.md body</strong> (under 5k tokens, loaded when triggered). <strong>Resources/scripts</strong> (loaded or run only when needed; script code never enters context).</p>
+    <ul class="rubric">
+      <li>Four tiers in order, with a sensible "use when"</li>
+      <li>Effort = token-spend control within one model; tune before switching</li>
+      <li>Prefix order tools → system → messages</li>
+      <li>Write 1.25× / 2×, read ≈ 0.1× (model-specific discounts)</li>
+      <li>Three disclosure levels with rough token costs</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>2 · The ideas that matter</h2>
+
+<h3>Model selection: tier, effort, then mode</h3>
+
+<table>
+<thead><tr><th>Model</th><th>Price in / out per MTok</th><th>Latency</th><th>Default effort</th><th>Use when</th></tr></thead>
+<tbody>
+<tr><td>Fable 5.1</td><td>$10 / $50</td><td>Slower</td><td>high</td><td>Hours-long agent sessions, deep research; Opus at xhigh/max still falls short</td></tr>
+<tr><td>Opus 5.5</td><td>$4 / $20</td><td>Moderate</td><td>medium</td><td>Default start; complex agentic coding and enterprise work</td></tr>
+<tr><td>Sonnet 5.5</td><td>$2 / $10</td><td>Fast</td><td>high</td><td>Everyday coding, analysis, agentic tool use</td></tr>
+<tr><td>Haiku 5.5</td><td>$0.10 / $0.50 (prompts ≤ 100k)<br>$0.50 / $2.50 (&gt; 100k)</td><td>Fastest</td><td>medium</td><td>Real-time, high-volume classification and routing; subagents</td></tr>
+</tbody>
+</table>
+<p class="cite">All four: 1M context, 128k max output, adaptive thinking, text + image input. Haiku's 100k price step counts <em>all</em> input tokens, cache reads and writes included. <a href="https://platform.claude.com/docs/en/models/overview">Models overview</a>; <a href="https://platform.claude.com/docs/en/about-claude/pricing">Pricing</a>; <a href="https://platform.claude.com/docs/en/about-claude/models/choosing-a-model">Choosing a model</a>.</p>
+
+<p><strong>Two ways to start.</strong> <em>Efficiency-first</em>: begin on Haiku and "upgrade only if necessary". Fits prototypes, tight latency, high-volume simple tasks. <em>Capability-first</em>: begin on Opus 5.5, then optimise down by lowering effort or model. Either way, "having a good evaluation set is the most important step". Multi-model designs (a cheap executor escalating to an advisor, or an orchestrator with cheap workers) bill most tokens at the lower rate. <span class="cite"><a href="https://platform.claude.com/docs/en/about-claude/models/choosing-a-model">Choosing a model</a>.</span></p>
+
+<p><strong>Effort is the first dial.</strong> <code>output_config.effort</code> takes <code>low | medium | high | xhigh | max</code>. It shapes <em>all</em> output tokens: thinking, tool calls and text. Lower effort means fewer, terser tool calls. It's a behavioural signal, not a hard budget. Use <code>max_tokens</code> as the hard cap, because thinking counts toward it. Changing top-level effort between requests breaks the prompt cache. Fable 5.1, Opus 5.5, Sonnet 5.5 and Haiku 5.5 support a per-message effort change (beta) that keeps it. For long agent loops, a <em>task budget</em> (beta, <code>output_config.task_budget</code>) gives Claude an advisory token total for the whole loop; effort tunes depth per step, the budget tunes breadth. <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/effort">Effort</a>; <a href="https://platform.claude.com/docs/en/build-with-claude/task-budgets">Task budgets</a>.</span></p>
+
+<p><strong>Thinking: adaptive replaced extended.</strong> With <em>adaptive thinking</em>, Claude decides when and how much to think, steered by effort. The old <em>extended thinking</em> (<code>type: "enabled"</code> + <code>budget_tokens</code>) is deprecated on the 4.6 models and returns a 400 error from 4.7 on. Thinking is always on in Fable 5.1 and Opus 5.5, and <code>"disabled"</code> returns a 400 error. Haiku 5.5 can disable it at effort ≤ high. Sonnet 5.5's lowest setting is <code>between_tools</code>. Thinking tokens are billed as output even when hidden (<code>display: "omitted"</code> is the default on these models). Current models also keep earlier turns' thinking blocks in context, so they count toward the window and bill as input on later turns. <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/thinking">Thinking</a>; <a href="https://platform.claude.com/docs/en/models/overview">Models overview</a>.</span></p>
+
+<p><strong>Batch when nobody is waiting.</strong> The Message Batches API costs 50% less on input and output. Most batches finish within 1 h, and they expire at 24 h. Limits are 100k requests or 256 MB per batch, and results stay available for 29 days. Discounts stack with caching. For shared context, use the <em>1-hour</em> cache, because batches can run longer than 5 minutes. <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/batch-processing">Batch processing</a>.</span></p>
+
+<h3>System prompts, templates, guardrails</h3>
+
+<p><strong>Clear, direct, motivated.</strong> Treat Claude as "a brilliant but new employee who lacks context". Golden rule: if a colleague with minimal context would be confused by the prompt, so will Claude. Explain <em>why</em> a rule exists, not just the rule. A one-sentence <strong>role</strong> in the system prompt focuses tone and behaviour. <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices">Prompting best practices</a>.</span></p>
+
+<p><strong>Templates = fixed text plus tagged variables.</strong> Wrap each kind of content in its own XML tag (<code>&lt;instructions&gt;</code>, <code>&lt;context&gt;</code>, <code>&lt;input&gt;</code>), keep tag names consistent, and nest documents as <code>&lt;documents&gt;&lt;document index="n"&gt;</code>. For long inputs (20k+ tokens), put the documents <em>at the top</em> and the query at the end. Queries placed at the end improved quality by "up to 30 percent" in tests. <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices">Ibid.</a></span></p>
+
+<p><strong>Prefill is gone on new models; use structured outputs.</strong> From the 4.6 models on, prefilling the last assistant turn returns a 400 error. Migrations: for format, use <strong>structured outputs</strong> (<code>output_config.format</code> JSON schema) or <strong>strict tool use</strong> (<code>strict: true</code>). For classification, use a tool with an enum or structured outputs. To skip preamble, use a system-prompt instruction. To refresh context, inject reminders into the user turn. <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices">Ibid., "Migrating away from prefilled responses"</a>.</span> Opus 5.5 and Fable 5.1 also reject <em>forced</em> tool use (<code>tool_choice</code> <code>any</code>/<code>tool</code> → 400): keep <code>auto</code> plus <code>strict: true</code>, or use structured outputs. <span class="cite"><a href="https://platform.claude.com/docs/en/models/opus-5-5/whats-new-opus-5-5">What's new in Opus 5.5</a>.</span> Structured outputs (GA) use constrained decoding, so responses are always schema-valid. Unsupported: recursive schemas, numeric and string-length constraints, and <code>additionalProperties</code> other than <code>false</code>. The first use of a schema adds grammar-compile latency (cached 24 h from last use). <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/structured-outputs">Structured outputs</a>.</span></p>
+
+<p><strong>Prompt-level hallucination guardrails.</strong> Allow "I don't know". On long documents, extract direct quotes first. Make Claude cite a supporting quote for each claim and retract claims it can't support. Restrict answers to the provided documents. Best-of-N comparison flags inconsistencies. <span class="cite"><a href="https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/reduce-hallucinations">Reduce hallucinations</a>.</span> Hard guarantees (schema, allowed labels) belong in structured outputs, not in prose.</p>
+
+<h3>Zero-shot, few-shot, chain-of-thought</h3>
+
+<p><strong>Few-shot</strong> is "one of the most reliable ways to steer" format, tone and structure. Use <strong>3–5</strong> examples that are <em>relevant</em> and <em>diverse</em>, wrapped in <code>&lt;example&gt;</code>/<code>&lt;examples&gt;</code> tags. <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices">Prompting best practices</a>.</span> Prefer "diverse, canonical examples" over a "laundry list of edge cases". <span class="cite"><a href="https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents">Context engineering</a>.</span></p>
+
+<p><strong>CoT today = thinking + effort.</strong> General instructions ("think thoroughly") often beat hand-written step lists. Worked examples shape how Claude thinks. Manual CoT (reason, then put the answer in <code>&lt;answer&gt;</code> tags) is a <em>fallback when thinking is off</em>. On Fable 5.1, Opus 5.5 and Sonnet 5.5, rely on thinking instead: a prompt asking for written reasoning in <code>&lt;thinking&gt;</code> tags "may be declined". Explicit <strong>prompt chaining</strong> is still the right tool when you must inspect intermediate outputs. <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices">Ibid.</a></span></p>
+
+<h3>Context windows and token usage</h3>
+
+<p><strong>Context is an attention budget.</strong> "As token count grows, accuracy and recall degrade": this is <em>context rot</em>. A 1M window is capacity, not a licence to fill it. Aim for "the smallest possible set of high-signal tokens". Load data just-in-time through identifiers (paths, queries), not up front. <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/context-windows">Context windows</a>; <a href="https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents">Context engineering</a>.</span></p>
+
+<table>
+<thead><tr><th>Tool</th><th>What it does</th><th>Reach for it when</th></tr></thead>
+<tbody>
+<tr><td>Server-side <strong>compaction</strong> (beta)</td><td>Claude summarises older turns on the server. <em>On demand</em> (you choose when; recommended where available) or at a token threshold</td><td>Primary strategy for long conversations and agents</td></tr>
+<tr><td><strong>Context editing</strong> (beta): tool-result clearing</td><td>Replaces old tool results with placeholders past a trigger (default 100k input tokens, keep last 3)</td><td>Tool-heavy agents; the "lightest touch" form of compaction. Use <code>clear_at_least</code>, since clearing breaks the cache</td></tr>
+<tr><td>Context editing: thinking-block clearing</td><td>Drops thinking from earlier turns (current models keep all of it by default)</td><td>Thinking piles up in long sessions</td></tr>
+<tr><td><strong>Memory tool</strong> (<code>memory_20250818</code>)</td><td>Client-side files under <code>/memories</code> that Claude reads and writes; you host the storage. Persists across sessions</td><td>Multi-session agents; pair with clearing or compaction so key facts survive. Guard against path traversal</td></tr>
+<tr><td><strong>Token counting</strong> API</td><td>Free estimate of input tokens (separate rate limit; ignores caching)</td><td>Pre-flight fit checks, routing, cost forecasts</td></tr>
+<tr><td>Subagents</td><td>Clean context per subtask; return condensed results to a lead</td><td>Broad, parallel research</td></tr>
+</tbody>
+</table>
+<p class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/compaction">Compaction</a>; <a href="https://platform.claude.com/docs/en/build-with-claude/context-editing">Context editing</a>; <a href="https://platform.claude.com/docs/en/agents-and-tools/tool-use/memory-tool">Memory tool</a>; <a href="https://platform.claude.com/docs/en/build-with-claude/token-counting">Token counting</a>; <a href="https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents">Context engineering</a>.</p>
+
+<p><strong>Token-count gotchas.</strong> The tokenizer introduced with Opus 4.7 (and used by later models) produces about <strong>30% more tokens</strong> for the same text, so recount against the target model. Cached tokens still occupy the window: caching changes the price of those tokens, not whether they count. <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/token-counting">Token counting</a>; <a href="https://platform.claude.com/docs/en/build-with-claude/context-windows">Context windows</a>.</span></p>
+
+<h3>Prompt reuse: caching, modular prompts, Skills</h3>
+
+<table>
+<thead><tr><th>Prompt caching fact</th><th>Value</th></tr></thead>
+<tbody>
+<tr><td>Prefix order</td><td><code>tools</code> → <code>system</code> → <code>messages</code>, up to the <code>cache_control</code> block</td></tr>
+<tr><td>Breakpoints</td><td>Up to 4 explicit; automatic caching (one top-level <code>cache_control</code>) uses one slot and moves forward as the chat grows</td></tr>
+<tr><td>TTL</td><td>5 min default (refreshed free on each hit) · 1 h optional (<code>"ttl": "1h"</code>)</td></tr>
+<tr><td>Price vs base input</td><td>Write 1.25× (5 min) / 2× (1 h) · read 0.1× (0.05× Opus 5.5 &amp; Sonnet 5.5; 0.025× Fable 5.1)</td></tr>
+<tr><td>Minimum cacheable</td><td>512 tokens on the 5.5 models and Fable 5.1 (1,024–4,096 on older models); shorter prompts silently skip caching</td></tr>
+<tr><td>Invalidation</td><td>Exact match only. Change tools → all levels; web-search, citations or speed toggle → system + messages; images or <code>tool_choice</code> → messages; thinking or effort params → messages</td></tr>
+<tr><td>Lookback</td><td>Checks up to 20 positions back per breakpoint</td></tr>
+<tr><td>Debugging misses</td><td><strong>Cache diagnostics</strong> (GA, Claude API): pass <code>diagnostics.previous_message_id</code> and the response names the first divergence (<code>system_changed</code>, <code>tools_changed</code>…)</td></tr>
+</tbody>
+</table>
+<p class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/prompt-caching">Prompt caching</a>; <a href="https://platform.claude.com/docs/en/build-with-claude/cache-diagnostics">Cache diagnostics</a>; <a href="https://platform.claude.com/docs/en/about-claude/pricing">Pricing</a> (a 5-min cache pays off after one read; a 1-h cache after two).</p>
+
+<p><strong>Modular prompt design follows from the prefix rule.</strong> Stable content goes first (tool definitions, then system role, rules and examples). Per-session content (an uploaded document) goes next. Volatile content (the user's question, timestamps, user names) goes last. A timestamp at the top of the system prompt yields a 0% hit rate. To change instructions mid-session, append a <code>{"role": "system"}</code> message (a <em>mid-conversation system message</em>) instead of editing the top-level <code>system</code> field: the earlier prefix stays byte-identical, so the cache still hits. <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/prompt-caching">Prompt caching</a>; <a href="https://platform.claude.com/docs/en/build-with-claude/mid-conversation-system-messages">Mid-conversation system messages</a>.</span></p>
+
+<p><strong>Agent Skills = progressive disclosure for know-how.</strong> A Skill is a folder with a <code>SKILL.md</code> file (YAML <code>name</code> ≤ 64 chars, <code>description</code> ≤ 1024 chars that says what it does <em>and when to use it</em>), plus optional files and scripts. Level 1 metadata (~100 tokens per Skill) is always loaded. Level 2, the SKILL.md body (under 5k tokens), loads when triggered. Level 3 resources load only when read, and scripts run with only their output entering context. So you can install many Skills "without context penalty". On the API, Skills need the code-execution tool and run with no network access. Custom Skills don't sync across claude.ai, the API and Claude Code. Treat third-party Skills like installing software and audit them. <span class="cite"><a href="https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview">Agent Skills overview</a>; <a href="https://www.anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills">Equipping agents with Skills</a>.</span></p>
+
+<!-- ============================================================ -->
+<h2>3 · Practice</h2>
+
+<div class="q" data-topic="d2" data-answer="0">
+  <p class="stem">A telecom routes 2 million short support messages a day into 12 queues. Each prompt is under 2k tokens and the p95 latency target is 500 ms. Which starting configuration is best?</p>
+  <ol class="options">
+    <li>Claude Haiku 5.5 at low effort</li>
+    <li>Claude Fable 5.1 at max effort</li>
+    <li>Claude Opus 5.5 at xhigh effort</li>
+    <li>Claude Sonnet 5.5 at max effort</li>
+  </ol>
+  <div class="explain">High-volume, latency-sensitive classification is Haiku's stated sweet spot. Its lowest price applies to prompts ≤ 100k tokens, and <code>low</code> effort fits "simpler tasks that need the best speed and lowest costs". The others pay for reasoning depth that routing doesn't need. Validate with evals and step up only if accuracy falls short. <span class="cite"><a href="https://platform.claude.com/docs/en/models/overview">Models overview</a>; <a href="https://platform.claude.com/docs/en/build-with-claude/effort">Effort</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d2" data-answer="0">
+  <p class="stem">An agent on Claude Opus 5.5 produces good results, but cost and latency are too high on routine subtasks. What should the architect try first?</p>
+  <ol class="options">
+    <li>Lower the effort level and rerun the eval suite</li>
+    <li>Set a budget_tokens cap on thinking for every request</li>
+    <li>Send thinking type disabled to switch reasoning off entirely</li>
+    <li>Move the workload to Claude Fable 5.1 for efficiency</li>
+  </ol>
+  <div class="explain">The docs: tuning effort "is often a better lever than switching models". <code>budget_tokens</code> returns a 400 error on 4.7 and later models. Opus 5.5 rejects <code>thinking: disabled</code> (thinking is always on). Fable 5.1 costs more, not less. <span class="cite"><a href="https://platform.claude.com/docs/en/about-claude/models/choosing-a-model">Choosing a model</a>; <a href="https://platform.claude.com/docs/en/build-with-claude/effort">Effort</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d2" data-answer="0,1">
+  <p class="stem">A legacy integration prefilled the assistant turn with <code>{</code> to force JSON. After migrating to Claude Sonnet 5.5, requests return a 400 error. Which <strong>two</strong> replacements are recommended?</p>
+  <ol class="options">
+    <li>Use structured outputs with a JSON schema set in output_config</li>
+    <li>Use strict tool use with a schema for required fields</li>
+    <li>Keep the prefill but shorten it to one brace character</li>
+    <li>Retry each rejected request with the prefill until it succeeds</li>
+  </ol>
+  <div class="explain">Prefill on the last assistant turn is unsupported from the 4.6 models on, so any prefill fails and retries won't help. <strong>Structured outputs</strong> (JSON schema) and <strong>strict tool use</strong> guarantee schema-valid output through constrained decoding. <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices">Prompting best practices</a>; <a href="https://platform.claude.com/docs/en/build-with-claude/structured-outputs">Structured outputs</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d2" data-answer="0">
+  <p class="stem">A prompt combines a 60-page contract (≈ 45k tokens), review instructions and one question. How should it be ordered for best accuracy?</p>
+  <ol class="options">
+    <li>Contract first in document tags, then instructions and the question</li>
+    <li>The question first, then the contract, then the formatting instructions</li>
+    <li>Instructions first, the question second, and the contract placed last</li>
+    <li>The contract split into chunks interleaved with the repeated question</li>
+  </ol>
+  <div class="explain">For 20k+ token inputs: put longform data <strong>at the top</strong>, wrap it in <code>&lt;document&gt;</code> tags, and put the query at the end. This improved quality "up to 30 percent" in tests. This order also caches well: the stable document stays in the prefix while questions change. <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices">Prompting best practices</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d2" data-answer="0">
+  <p class="stem">An invoice-extraction prompt yields inconsistent field formats and tone across vendors. Which change most reliably fixes this?</p>
+  <ol class="options">
+    <li>Add three to five diverse, relevant examples inside example tags</li>
+    <li>Add a single long example covering every possible field type</li>
+    <li>Add thirty near-identical examples, all copied from the same customer</li>
+    <li>Add capitalised MUST rules for format in the instructions section</li>
+  </ol>
+  <div class="explain">Few-shot is "one of the most reliable ways to steer" format and tone. Use <strong>3–5 relevant, diverse</strong> examples in <code>&lt;example&gt;</code> tags. Near-identical examples teach unintended patterns. One mega-example isn't diverse. Shouting rules is weaker than showing. <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices">Prompting best practices</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d2" data-answer="0">
+  <p class="stem">A team's prompt on Claude Opus 5.5 says "write your step-by-step reasoning in &lt;thinking&gt; tags before answering", and some requests get declined. What is the best fix?</p>
+  <ol class="options">
+    <li>Remove it; rely on adaptive thinking and tune effort instead</li>
+    <li>Rename the tags to scratchpad so the request is accepted</li>
+    <li>Disable thinking so the manual reasoning steps can run instead</li>
+    <li>Add a budget_tokens value so the written reasoning has room</li>
+  </ol>
+  <div class="explain">On Fable 5.1, Opus 5.5 and Sonnet 5.5, prompts asking for written-out reasoning "may be declined". Rely on thinking, at lower effort if cost matters. Manual CoT is a fallback only when thinking is off, and Opus 5.5 can't turn it off. <code>budget_tokens</code> returns a 400 error on 4.7+. <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices">Prompting best practices</a>; <a href="https://platform.claude.com/docs/en/build-with-claude/thinking">Thinking</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d2" data-answer="0,1">
+  <p class="stem">A chatbot sends a 6k-token system prompt and 20 tool definitions with every request, but the dashboard shows almost no cache reads. Which <strong>two</strong> are the likely causes?</p>
+  <ol class="options">
+    <li>The current timestamp is inserted at the top of the system prompt</li>
+    <li>The tool definitions are assembled in a random order on every request</li>
+    <li>The system prompt is well above the model's minimum cacheable token length</li>
+    <li>A breakpoint sits on the last block of the stable system prompt</li>
+  </ol>
+  <div class="explain">Cache hits need a <strong>100% identical prefix</strong> in the order tools → system → messages. Reordered tools invalidate everything. A changing timestamp early in the system prompt invalidates the system and messages levels. Being above the minimum length and placing a breakpoint at the end of stable content are both correct practice. <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/prompt-caching">Prompt caching</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d2" data-answer="0">
+  <p class="stem">Each night, 50,000 documents are summarised with the same 30k-token instruction block. Results are needed by 8 a.m. Which option minimises cost?</p>
+  <ol class="options">
+    <li>Batch API with a one-hour cache on the shared prefix</li>
+    <li>Batch API with a five-minute cache on the shared prefix</li>
+    <li>Fast mode with a one-hour cache on the shared prefix</li>
+    <li>Real-time Messages API with no caching of the shared prefix</li>
+  </ol>
+  <div class="explain">Batch gives 50% off and the discounts stack with caching. Batches can run longer than 5 minutes, so the docs recommend the <strong>1-hour</strong> cache for better hit rates. Fast mode is premium-priced and isn't available with batch. <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/batch-processing">Batch processing</a>; <a href="https://platform.claude.com/docs/en/about-claude/pricing">Pricing</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d2" data-answer="0,1">
+  <p class="stem">A research agent runs for hours. Its context fills with stale web-search results, and answer quality drops in later turns. Which <strong>two</strong> features address this most directly?</p>
+  <ol class="options">
+    <li>Context editing that clears old tool results past a token threshold</li>
+    <li>Server-side compaction that summarises the older turns of a long conversation</li>
+    <li>Raising max_tokens so the agent has more room for each response</li>
+    <li>Turning off prompt caching so stale content is not reused again</li>
+  </ol>
+  <div class="explain">Quality falling as context grows is <strong>context rot</strong>. <strong>Tool-result clearing</strong> is the lightest fix for tool-heavy agents. <strong>Compaction</strong> is the primary strategy for long conversations. <code>max_tokens</code> limits output, not context hygiene. Caching changes price, not what's in context. <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/context-windows">Context windows</a>; <a href="https://platform.claude.com/docs/en/build-with-claude/context-editing">Context editing</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d2" data-answer="0">
+  <p class="stem">A coding agent migrates a monolith over many separate sessions across a week. Each new session wastes its first hour re-exploring the repo and re-deciding settled questions. What is the best fix?</p>
+  <ol class="options">
+    <li>Add the memory tool so progress notes persist between sessions</li>
+    <li>Use the one-hour cache TTL so sessions reuse earlier context</li>
+    <li>Raise max_tokens so every session can read more repository files</li>
+    <li>Switch to Fable 5.1 so the agent remembers earlier sessions</li>
+  </ol>
+  <div class="explain">The <strong>memory tool</strong> lets Claude write and read files under <code>/memories</code> that your app stores, so a new session starts by reading the progress log instead of re-exploring. A cache only discounts an identical prefix and expires after an hour; it carries no state into a new session. <code>max_tokens</code> caps output, not memory. No model remembers past sessions on its own: state must live outside the context window. <span class="cite"><a href="https://platform.claude.com/docs/en/agents-and-tools/tool-use/memory-tool">Memory tool</a>; <a href="https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents">Context engineering</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d2" data-answer="0">
+  <p class="stem">An operations agent's system prompt contains 40 internal procedures of about 4k tokens each, but a typical task needs one or two. What is the best redesign?</p>
+  <ol class="options">
+    <li>Package each as an Agent Skill loaded only when its description matches</li>
+    <li>Keep them all in the system prompt and rely on prompt caching</li>
+    <li>Spin up one subagent per procedure and send every request to each</li>
+    <li>Move procedures into the user turn so they are counted as input</li>
+  </ol>
+  <div class="explain">Skills use <strong>progressive disclosure</strong>: ~100 tokens of metadata per Skill until triggered, then the SKILL.md body. That's ~4k tokens of metadata instead of ~160k of procedures. Caching cuts the price but the tokens still fill the window, so context rot remains. Fan-out to 40 subagents multiplies cost. <span class="cite"><a href="https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview">Agent Skills overview</a>; <a href="https://platform.claude.com/docs/en/build-with-claude/context-windows">Context windows</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d2" data-answer="0,1">
+  <p class="stem">You are migrating a high-volume workload from Claude Sonnet 4.6 to Claude Sonnet 5.5 and must update the cost forecast. Which <strong>two</strong> steps are correct?</p>
+  <ol class="options">
+    <li>Recount prompts with the token counting endpoint using the new model ID</li>
+    <li>Budget for thinking tokens, which bill as output and count toward max_tokens</li>
+    <li>Reuse earlier token counts, because the tokenizer stays the same across generations</li>
+    <li>Ignore cached prefix tokens, since they no longer count toward the window</li>
+  </ol>
+  <div class="explain">Models from Opus 4.7 on use a newer tokenizer with ~30% more tokens for the same text: recount with the target model. Sonnet 5.5 has thinking on by default, and thinking is billed as output within <code>max_tokens</code>. Cached tokens still count toward the window. <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/token-counting">Token counting</a>; <a href="https://platform.claude.com/docs/en/build-with-claude/context-windows">Context windows</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d2" data-answer="0,1">
+  <p class="stem">An HR policy assistant sometimes states policies that aren't in the handbook it receives. Which <strong>two</strong> prompt-level guardrails most directly reduce this?</p>
+  <ol class="options">
+    <li>Permit it to say it lacks enough information in the handbook</li>
+    <li>Require a supporting handbook quote for each claim, else retract it</li>
+    <li>Raise effort to max so the model reasons longer per question</li>
+    <li>Assign a senior, world-class HR expert persona in the system prompt</li>
+  </ol>
+  <div class="explain">Anthropic's hallucination guide: <strong>allow "I don't know"</strong> and <strong>verify with citations</strong> (retract any claim without a supporting quote). More effort doesn't ground answers. An expert persona can raise confidence without adding accuracy. <span class="cite"><a href="https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/reduce-hallucinations">Reduce hallucinations</a>.</span></div>
+</div>
+
+<!-- ============================================================ -->
+<h2>4 · Architect scenario</h2>
+
+<div class="callout">
+<p><strong>Larkspur Legal</strong> sells a contract-review SaaS. Three workloads: (1) <em>Intake</em>: 50k uploaded documents a day must be classified into 9 contract types. (2) <em>Review sessions</em>: a lawyer uploads one contract (≈ 80k tokens) and asks about 8 questions over 20–40 minutes. Every request carries a 12k-token firm playbook and 15 tool definitions. (3) <em>Re-review</em>: when the playbook changes (monthly), all 200k active contracts are re-checked within 48 hours. Pain points: the API bill doubled last quarter, cache hits are rare, and lawyers report answers that cite clauses that don't exist.</p>
+</div>
+
+<div class="recall" data-topic="d2" data-title="Scenario: Larkspur Legal">
+  <p class="prompt"><strong>(8 min)</strong> (a) Which model and effort for each workload, and why? (b) How do you structure the review prompt (order, tags, guardrails, output format)? (c) What is your caching and batch plan, and what was probably killing cache hits? (d) How do you manage context in long sessions, and is there a place for Skills?</p>
+  <textarea placeholder="(a) … (b) … (c) … (d) …"></textarea>
+  <div class="model">
+    <p>(a) <strong>Intake</strong>: Haiku 5.5 at low effort, with output constrained to the 9 labels (structured outputs or a tool with an enum). Short prompts stay under Haiku's 100k-token price step. <strong>Review</strong>: start on Opus 5.5 (medium) or Sonnet 5.5 and let evals decide; run an effort sweep before switching tier. Don't use Haiku here: 80k contract + 12k playbook + tools + growing chat passes 100k, above which Haiku's prices jump 5× (cached tokens count toward that threshold). <strong>Re-review</strong>: the Batch API (50% off, 24 h window fits 48 h).<br>
+    (b) Order: <strong>tools → system</strong> (role, playbook in <code>&lt;playbook&gt;</code>, 3–5 diverse worked examples in <code>&lt;examples&gt;</code>) → first user turn with the contract in <code>&lt;document&gt;</code> tags → question <strong>last</strong>. Guardrails: quote-first, cite a clause for each finding and retract unsupported claims, permission to say "not in the contract". Structured outputs for the findings table.<br>
+    (c) Breakpoint 1 after the system prompt (tools + playbook shared by all sessions). Breakpoint 2 after the contract (shared by one session's questions). Automatic caching for the growing conversation. Use the 1-h TTL where gaps between questions exceed 5 minutes (pays off after two reads). For the batch, put the playbook prefix first with a 1-h cache. Likely killers: per-request content early in the prefix (user name, timestamp), tools reordered or toggled, editing the system prompt mid-session (append a mid-conversation system message instead), or changing top-level effort mid-session (use per-message effort). Turn on cache diagnostics to see exactly where the prefix diverged.<br>
+    (d) 8 questions on an 80k contract fits in 1M, but context rot argues for keeping it lean. Use tool-result clearing for retrieval output and compaction for marathon sessions; the memory tool can keep per-matter notes across sessions. Skills: split the playbook into per-contract-type Skills (NDA, MSA, lease), loaded only when relevant. This shrinks every prompt but needs the code-execution tool, and changes what's in the cached prefix, so measure both.</p>
+    <ul class="rubric">
+      <li>Tiered models: Haiku for intake, stronger model for review, chosen by evals</li>
+      <li>Effort tuned before switching tier; Haiku &gt;100k price step noticed</li>
+      <li>Batch API for re-review, with a 1-hour cache on the shared prefix</li>
+      <li>Stable → volatile ordering; documents top, question last; XML tags</li>
+      <li>Correct breakpoint placement and named causes of cache misses</li>
+      <li>Grounding guardrails (quotes/citations, "not found") + structured outputs</li>
+      <li>Context rot named; clearing/compaction; Skills as progressive disclosure</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>5 · Go deeper</h2>
+
+<div class="callout source">
+<p><strong>Primary source (read this):</strong> Anthropic, <a href="https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents">"Effective context engineering for AI agents"</a>. It ties together prompt altitude, few-shot, tools, just-in-time retrieval, compaction and subagents: the D2 mental model in one read. Keep the <a href="https://platform.claude.com/docs/en/build-with-claude/prompt-caching">prompt caching</a> page open for the numbers.</p>
+</div>
+
+<div class="callout ask">
+<p><strong>Ask your teacher.</strong> Anything unclear, or you disagree with an answer? Ask in the chat. If your Partner Academy notes say otherwise (especially model names and prices, which move fast), tell me and the lesson gets fixed.</p>
+</div>
+
+<div id="scoreboard" class="scoreboard"></div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

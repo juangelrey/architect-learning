@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch. 3: Managing domain complexity</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-lesson="0003-managing-domain-complexity">
+
+<nav class="crumbs"><a href="../index.html">Course map</a> · <a href="../reference/glossary.html">Glossary</a> · Prev: <a href="0002-discovering-domain-knowledge.html">Ch. 2</a> · Next: <a href="0004-integrating-bounded-contexts.html">Ch. 4</a></nav>
+
+<div class="kicker">Chapter 3</div>
+<h1>Managing domain complexity</h1>
+<p class="subtitle">One language can't serve a whole company. Bounded contexts let each part of the business keep its own.</p>
+
+<div class="meta">
+  <span>≈ 12 minutes</span>
+  <span>2 review + 7 questions + 1 scenario</span>
+  <span><span class="tag strategic">Part I</span></span>
+</div>
+
+<!-- ============================================================ -->
+<h2>0 · Spaced review: ch. 1–2</h2>
+
+<div class="q" data-topic="strategic" data-answer="0">
+  <p class="stem">A ticketing company runs customer surveys and finds that its loyalty-points scheme is the main reason customers choose it over rivals. Competitors have tried to copy it and failed. The loyalty scheme is a…</p>
+  <ol class="options">
+    <li>Core subdomain</li>
+    <li>Generic subdomain</li>
+    <li>Supporting subdomain</li>
+    <li>Bounded context</li>
+  </ol>
+  <div class="explain">It's a competitive advantage that is hard to copy, so it's <strong>core</strong>, even though "loyalty points" sounds ordinary. Classify by business strategy, not by how a feature sounds. <span class="cite">Ch. 1.</span></div>
+</div>
+
+<div class="q" data-topic="strategic" data-answer="0">
+  <p class="stem">What does an effective model do on purpose?</p>
+  <ol class="options">
+    <li>Omits details irrelevant to the problem it solves</li>
+    <li>Captures every detail of the real-world system faithfully</li>
+    <li>Mirrors the structure of the existing database schema</li>
+    <li>Uses technical terms so engineers can implement it</li>
+  </ol>
+  <div class="explain">A model is a <strong>purposeful simplification</strong>, like a subway map. Leaving things out is the point. <span class="cite">Ch. 2.</span></div>
+</div>
+
+<!-- ============================================================ -->
+<h2>1 · Recall first</h2>
+
+<div class="recall" data-topic="warmup" data-title="Bounded context recall">
+  <p class="prompt">Without looking: (a) Define a <em>bounded context</em> in one sentence. (b) How do bounded contexts relate to subdomains: who discovers, who designs, and does the mapping have to be 1:1? (c) Besides being a boundary for a model, what two other kinds of boundary is a bounded context? What's the ownership rule?</p>
+  <textarea placeholder="(a) …&#10;(b) …&#10;(c) …"></textarea>
+  <div class="model">
+    <p>(a) The <strong>boundary within which a ubiquitous language, and the model it expresses, is consistent</strong>. Outside it, the same terms may mean something else.<br>
+    (b) Subdomains are <strong>discovered</strong> from the business strategy. Bounded contexts are <strong>designed</strong>: a strategic design decision. The mapping doesn't have to be 1:1. One context can contain several subdomains.<br>
+    (c) A <strong>physical</strong> boundary: each context can be its own service or project, evolved, versioned, and deployed independently, with its own technology. An <strong>ownership</strong> boundary: one context is owned by exactly one team, although one team can own several contexts.</p>
+    <ul class="rubric">
+      <li>Defined it as the consistency boundary of a language/model</li>
+      <li>Discovered vs designed, and not necessarily 1:1</li>
+      <li>Physical boundary (independent evolution and deployment)</li>
+      <li>Ownership: one team per context, a team may own several</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>2 · The ideas that matter</h2>
+
+<p><strong>The problem: inconsistent models.</strong> Different parts of the business use the same word for different things. The chapter's example is <em>lead</em>. In marketing, a lead is just a notification that someone is interested. In sales, a lead is a rich entity that tracks the whole sales lifecycle. <span class="cite">Ch. 3.</span></p>
+
+<p><strong>Rejected fixes.</strong> One huge model that satisfies everyone ends up serving no one and is hard to change. Prefixing names (<code>MarketingLead</code>, <code>SalesLead</code>) works in code, but it isn't how domain experts talk, and it adds cognitive load.</p>
+
+<p><strong>The DDD fix: bounded contexts.</strong> Divide the language into several smaller languages, and give each its own explicit boundary. Inside a context, the language is strictly consistent. Across contexts, the same word can mean different things. A model needs a boundary to be useful at all.</p>
+
+<p><strong>Size is a design decision.</strong> There's no universal size. Smaller isn't automatically better: narrow contexts multiply integration work, and wide ones get hard to keep consistent. Chapter 10's heuristics give guidance on sizing.</p>
+
+<p><strong>Subdomains vs bounded contexts.</strong> Subdomains are <em>discovered</em>. Bounded contexts are <em>designed</em>. They often line up, but they don't have to.</p>
+
+<p><strong>Boundaries in practice.</strong> A bounded context is also a <em>physical</em> boundary, a separate service or project with its own lifecycle, and an <em>ownership</em> boundary, owned by exactly one team. One team can own several contexts.</p>
+
+<p class="cite">See also <a href="https://martinfowler.com/bliki/BoundedContext.html">Fowler, "BoundedContext"</a> and Evans, "Bounded Context" in the <a href="https://www.domainlanguage.com/ddd/reference/">DDD Reference</a>.</p>
+
+<!-- ============================================================ -->
+<h2>3 · Practice</h2>
+
+<div class="q" data-topic="strategic" data-answer="0">
+  <p class="stem">To Marketing, a <em>lead</em> is a notification of interest. To Sales, a <em>lead</em> is an entity tracking the whole sales lifecycle. What's the DDD resolution?</p>
+  <ol class="options">
+    <li>Model lead separately in Marketing and Sales bounded contexts</li>
+    <li>Create one rich Lead model that satisfies both departments</li>
+    <li>Prefix them as MarketingLead and SalesLead in one model</li>
+    <li>Let the most senior domain expert choose one meaning</li>
+  </ol>
+  <div class="explain">Each meaning gets its own <strong>bounded context</strong>, where it is consistent. One shared model serves neither department well. Prefixes work in code, but they're still one model, and nobody in the business says "MarketingLead".</div>
+</div>
+
+<div class="q" data-topic="strategic" data-answer="0">
+  <p class="stem">Inside a bounded context, the ubiquitous language must be consistent. <strong>Across</strong> bounded contexts…</p>
+  <ol class="options">
+    <li>The same term may carry different meanings</li>
+    <li>Every term must keep exactly one meaning</li>
+    <li>Terms must always be prefixed by context</li>
+    <li>Only technical terms may be shared freely</li>
+  </ol>
+  <div class="explain">That's the whole point: the language is "ubiquitous" only <strong>within</strong> its context. Requiring one meaning company-wide brings back the problem bounded contexts were introduced to solve.</div>
+</div>
+
+<div class="q" data-topic="strategic" data-answer="0">
+  <p class="stem">Which team–context arrangement does the chapter rule out?</p>
+  <ol class="options">
+    <li>Two teams jointly owning a single bounded context</li>
+    <li>One team owning three separate bounded contexts entirely</li>
+    <li>One team owning exactly one single bounded context</li>
+    <li>Each bounded context having its own separate codebase</li>
+  </ol>
+  <div class="explain">A bounded context is owned by <strong>exactly one team</strong>. Shared ownership means two teams make conflicting assumptions about one model. One team owning several contexts is fine.</div>
+</div>
+
+<div class="q" data-topic="strategic" data-answer="0">
+  <p class="stem">Which statement about subdomains and bounded contexts is correct?</p>
+  <ol class="options">
+    <li>A single bounded context may contain several subdomains</li>
+    <li>Each subdomain must map to exactly one context</li>
+    <li>Bounded contexts must mirror the company's department structure</li>
+    <li>Subdomains are chosen by engineers to fit contexts</li>
+  </ol>
+  <div class="explain">The mapping is a <strong>design choice</strong>, not a rule. 1:1 is common and often sensible, but one context can hold several subdomains. Subdomains are discovered from the business, so engineers don't get to choose them.</div>
+</div>
+
+<div class="q" data-topic="strategic" data-answer="0">
+  <p class="stem">Because a bounded context is also a <em>physical</em> boundary, it…</p>
+  <ol class="options">
+    <li>Can evolve, deploy, and choose technology independently of others</li>
+    <li>Must run in its own dedicated data center region</li>
+    <li>Must share a single database with all other contexts</li>
+    <li>Must be implemented as exactly one small, separate microservice</li>
+  </ol>
+  <div class="explain">Each context can be its own service or project, with its own lifecycle and <strong>its own technology stack</strong>. That doesn't make it a microservice by definition. Chapter 14 covers that relationship.</div>
+</div>
+
+<div class="q" data-topic="strategic" data-answer="0">
+  <p class="stem">How big should a bounded context be?</p>
+  <ol class="options">
+    <li>It depends on the problem; no universal size exists</li>
+    <li>As small as possible, ideally one single entity each</li>
+    <li>Exactly one per subdomain, regardless of the specific problem</li>
+    <li>One per developer, to maximize each person's individual autonomy</li>
+  </ol>
+  <div class="explain">Size is a <strong>design decision</strong> that depends on the problem. Contexts that are too narrow create integration overhead. Contexts that are too wide get hard to keep consistent. Chapter 10 gives heuristics.</div>
+</div>
+
+<div class="q" data-topic="strategic" data-answer="0">
+  <p class="stem">At Rentora (from ch. 2), "class" means <em>vehicle category</em> to Operations and <em>tax class</em> to Finance. After you split them into two bounded contexts, can both keep the word "class"?</p>
+  <ol class="options">
+    <li>Yes, each context's language is consistent on its own</li>
+    <li>No, terms must be unique across the whole company</li>
+    <li>No, one context must rename it to avoid confusion</li>
+    <li>Yes, but only if both share a database table</li>
+  </ol>
+  <div class="explain"><strong>Yes.</strong> Consistency is required only <em>within</em> a context. Renaming is optional. You might still choose a clearer term inside Operations, but the bounded contexts don't force you to.</div>
+</div>
+
+<!-- ============================================================ -->
+<h2>4 · Interview scenario</h2>
+
+<div class="callout">
+<p><strong>PawPoint</strong>, a chain of veterinary clinics. Its edge is <em>smart scheduling</em>: it predicts how long each visit will take for each animal and overbooks safely. At the front desk, staff book <em>appointments</em> for a "patient" (meaning the pet and its owner). Vets record diagnoses and <em>treatments</em>, meaning medical procedures, in the patient's (the animal's) history. Billing turns treatments into <em>priced line items</em>, invoices the <em>client</em> (the owner), and charges cards through a payment provider. There are three teams: Scheduling, Clinical, and Billing. The Billing team has spare capacity, and someone also has to manage the medicine stock.</p>
+</div>
+
+<div class="recall" data-topic="strategic" data-title="Scenario: PawPoint contexts">
+  <p class="prompt"><strong>(7 min)</strong> Propose bounded contexts. For each one, give (a) the owning team, (b) terms whose meaning differs from other contexts, and (c) the subdomain or subdomains it contains. Justify any context that holds more than one subdomain.</p>
+  <textarea placeholder="Context: team · key terms · subdomains …"></textarea>
+  <div class="model">
+    <table>
+      <thead><tr><th>Context</th><th>Team</th><th>Language</th><th>Subdomains</th></tr></thead>
+      <tbody>
+        <tr><td>Scheduling</td><td>Scheduling</td><td><em>Patient</em> = pet + owner as an attendee · <em>Appointment</em> · predicted duration</td><td>Smart scheduling (core)</td></tr>
+        <tr><td>Clinical</td><td>Clinical</td><td><em>Patient</em> = the animal and its medical history · <em>Treatment</em> = a medical procedure</td><td>Clinical records (supporting)</td></tr>
+        <tr><td>Billing</td><td>Billing</td><td><em>Client</em> = paying owner · <em>Treatment</em> = priced line item · <em>Invoice</em></td><td>Invoicing (supporting) + payment integration (generic, bought)</td></tr>
+        <tr><td>Inventory</td><td>Billing</td><td><em>Stock item</em>, <em>batch</em>, <em>expiry</em></td><td>Medicine stock (supporting)</td></tr>
+      </tbody>
+    </table>
+    <p class="small">"Treatment" and "patient" keep different meanings in different contexts, and that's fine. Billing holds two subdomains because they share one language and one team. The Billing team owns two contexts, which is allowed. Two teams sharing one context is not.</p>
+    <ul class="rubric">
+      <li>Drew boundaries where the language changes, not around entities or tables</li>
+      <li>Let "patient" and/or "treatment" mean different things in different contexts</li>
+      <li>Exactly one owning team per context</li>
+      <li>Used the "one team can own several contexts" option (e.g. Inventory)</li>
+      <li>Justified at least one context that holds several subdomains (or a deliberate 1:1)</li>
+      <li>Said that contexts can evolve or deploy independently (physical boundary)</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>Your results</h2>
+<div id="scoreboard" class="scoreboard"></div>
+<p>Copy your results and paste them into the chat. Next up is <strong>ch. 4, Integrating Bounded Contexts</strong>: now that PawPoint has four contexts, how do they talk to each other?</p>
+
+<div class="callout source">
+<p><strong>Primary source:</strong> <a href="https://www.oreilly.com/library/view/learning-domain-driven-design/9781098100124/">Khononov, <em>Learning Domain-Driven Design</em>, ch. 3</a>. Re-read the subdomains-vs-bounded-contexts section and the figures that show the possible mappings. Then do the chapter exercises.</p>
+</div>
+
+<div class="callout ask">
+<p><strong>Questions?</strong> Ask me in the chat. For example: "Is a bounded context the same as a microservice?" (a classic interview trap) or "When would I split one subdomain across two contexts?"</p>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

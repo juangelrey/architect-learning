@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch. 14: Microservices</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-lesson="0014-microservices">
+
+<nav class="crumbs"><a href="../index.html">Course map</a> · <a href="../reference/glossary.html">Glossary</a> · Prev: <a href="0013-ddd-in-the-real-world.html">Ch. 13</a> · Next: <a href="0015-event-driven-architecture.html">Ch. 15</a></nav>
+
+<div class="kicker">Chapter 14</div>
+<h1>Microservices</h1>
+<p class="subtitle">A microservice isn't defined by its lines of code. It's defined by how small its public interface is compared to what it hides.</p>
+
+<div class="meta">
+  <span>≈ 12 minutes</span>
+  <span>2 review + 7 questions + 1 scenario</span>
+  <span><span class="tag beyond">Part IV</span></span>
+</div>
+
+<!-- ============================================================ -->
+<h2>0 · Spaced review: earlier chapters</h2>
+
+<div class="q" data-topic="tactical" data-answer="2">
+  <span class="tag tactical">Part II</span>
+  <p class="stem">A <code>Shipment</code> aggregate needs to know which <code>Order</code> it fulfils. Under the aggregate design rules, it should…</p>
+  <ol class="options">
+    <li>embed the full Order aggregate inside itself</li>
+    <li>load the Order in the same transaction</li>
+    <li>hold only the Order aggregate's ID value</li>
+    <li>share one database row with the Order</li>
+  </ol>
+  <div class="explain">Aggregates <strong>reference other aggregates by ID</strong>. Each aggregate is its own consistency and transactional boundary. <span class="cite">Ch. 6.</span></div>
+</div>
+
+<div class="q" data-topic="strategic" data-answer="1">
+  <span class="tag strategic">Part I</span>
+  <p class="stem">An upstream context has many consumers and wants to change its internal model freely. Which integration pattern fits?</p>
+  <ol class="options">
+    <li>Conformist relationship</li>
+    <li>Open-host service</li>
+    <li>Shared kernel</li>
+    <li>Separate ways</li>
+  </ol>
+  <div class="explain">An <strong>open-host service</strong> exposes a published language that is separate from the internal model, so the two can evolve independently. Keep this one in mind: it comes back in this chapter. <span class="cite">Ch. 4.</span></div>
+</div>
+
+<!-- ============================================================ -->
+<h2>1 · Recall first</h2>
+
+<div class="recall" data-topic="warmup" data-title="Microservices recall">
+  <p class="prompt">Without looking: (a) What makes a service <em>micro</em>, in the chapter's terms? (b) What are <em>global</em> and <em>local</em> complexity, and how does service granularity trade one for the other? (c) Name the widest and the narrowest valid microservice boundaries, and the "safe" boundary in between.</p>
+  <textarea placeholder="(a) …&#10;(b) …&#10;(c) …"></textarea>
+  <div class="model">
+    <p>(a) A <strong>micro public interface</strong>: a <em>deep</em> service, whose simple interface hides a lot of functionality. Size of the codebase is not the measure.<br>
+    (b) <strong>Local complexity</strong> is the complexity inside each service. <strong>Global complexity</strong> is the complexity of the interactions between services. Finer services lower local complexity but raise global complexity. The goal is to balance the two, not to minimize either one.<br>
+    (c) Widest: <strong>bounded contexts</strong>. Narrowest: <strong>aggregates</strong>, usually too narrow. Safe middle: <strong>subdomains</strong>.</p>
+    <ul class="rubric">
+      <li>Defined micro as a small public interface or deep service</li>
+      <li>Explained the local vs global complexity trade-off</li>
+      <li>Bounded contexts widest, aggregates narrowest</li>
+      <li>Subdomains as the safe heuristic</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>2 · The ideas that matter</h2>
+
+<p><strong>What a service is.</strong> A service has a <em>public interface</em>, meaning everything other components can use to talk to it, and an implementation behind it. The chapter warns against the naive reading of "micro" (one method per service, or as few lines of code as possible). That produces swarms of services whose interfaces are as complex as their implementations. <span class="cite">Ch. 14.</span></p>
+
+<p><strong>Deep services.</strong> Borrowing John Ousterhout's <em>deep module</em> idea, a good microservice hides a lot of functionality behind a <strong>small public interface</strong>. A shallow service adds integration cost without hiding anything. Taken to the extreme, you get a <em>distributed big ball of mud</em>.</p>
+
+<p><strong>Global vs local complexity.</strong> Breaking a system into finer services reduces each service's local complexity and increases global complexity. Merging services does the reverse. Design so that the total complexity stays manageable.</p>
+
+<p><strong>Boundaries.</strong> Every microservice is a bounded context, but not every bounded context is a microservice. A context can be decomposed further. Bounded contexts are the <em>widest</em> valid boundaries. Aggregates are the <em>narrowest</em>, and usually too chatty to be services. <strong>Subdomains</strong> (sets of coherent use cases) are the safe heuristic, because they tend to be naturally deep.</p>
+
+<p><strong>Compressing public interfaces.</strong> Two context-map patterns from ch. 4 reduce what a service exposes. An <em>open-host service</em> publishes a smaller, integration-oriented published language instead of its internal model. An <em>anticorruption layer</em> keeps upstream complexity out of the consumer.</p>
+
+<p class="cite">See also <a href="https://martinfowler.com/bliki/BoundedContext.html">Fowler, "BoundedContext"</a> and Ousterhout, <em>A Philosophy of Software Design</em> (deep modules).</p>
+
+<!-- ============================================================ -->
+<h2>3 · Practice</h2>
+
+<div class="q" data-topic="beyond" data-answer="2">
+  <p class="stem">In the chapter's sense, what makes a service <em>micro</em>?</p>
+  <ol class="options">
+    <li>Fewer than a thousand lines of code</li>
+    <li>Exactly one public method per deployed service</li>
+    <li>A small public interface hiding rich functionality</li>
+    <li>A single database table owned by service</li>
+  </ol>
+  <div class="explain">Micro refers to the <strong>public interface</strong>, not the code size. A service with one method per endpoint is the shallow anti-pattern the chapter warns against.</div>
+</div>
+
+<div class="q" data-topic="beyond" data-answer="0">
+  <p class="stem">A team splits every business operation into its own service. Each service is trivial, but every feature now needs calls across eight services. What happened?</p>
+  <ol class="options">
+    <li>Local complexity fell while global complexity grew sharply</li>
+    <li>Global complexity fell while local complexity grew sharply</li>
+    <li>Both local and global complexity fell together nicely</li>
+    <li>Neither complexity changed, only the deployment topology did</li>
+  </ol>
+  <div class="explain">Each service is simple (low <strong>local</strong> complexity), but the interactions between them exploded (high <strong>global</strong> complexity). This road leads to a distributed big ball of mud.</div>
+</div>
+
+<div class="q" data-topic="beyond" data-answer="3">
+  <p class="stem">Which statement about microservices and bounded contexts matches the chapter?</p>
+  <ol class="options">
+    <li>Every bounded context must be deployed as one microservice</li>
+    <li>Microservices and bounded contexts are unrelated design concepts entirely</li>
+    <li>A microservice should always contain several bounded contexts inside</li>
+    <li>Every microservice is a bounded context; not vice versa</li>
+  </ol>
+  <div class="explain">A microservice has one model and one owner, so it's a bounded context. But a bounded context can be wider than a good microservice and be decomposed further. A classic interview trap is to treat the two as identical.</div>
+</div>
+
+<div class="q" data-topic="beyond" data-answer="1">
+  <p class="stem">Why are aggregates usually <em>too narrow</em> to be microservices?</p>
+  <ol class="options">
+    <li>Aggregates cannot be persisted in separate databases at all</li>
+    <li>Use cases span aggregates, making services shallow and chatty</li>
+    <li>Aggregates are only ever valid inside event-sourced domain models</li>
+    <li>Aggregates must always share one transaction with their neighbors</li>
+  </ol>
+  <div class="explain">Business processes usually touch several aggregates, so one service per aggregate means lots of cross-service traffic and <strong>shallow</strong> interfaces. Subdomains group coherent use cases, so they tend to give deeper services.</div>
+</div>
+
+<div class="q" data-topic="beyond" data-answer="0">
+  <p class="stem">Which boundary does the chapter offer as a <strong>safe heuristic</strong> for microservices?</p>
+  <ol class="options">
+    <li>Align with subdomains</li>
+    <li>Align with aggregates</li>
+    <li>Align with entities</li>
+    <li>Align with tables</li>
+  </ol>
+  <div class="explain"><strong>Subdomains</strong> are coherent sets of use cases, so they're naturally deep. Aggregates are too narrow. Entities and tables are technical, not business, boundaries.</div>
+</div>
+
+<div class="q" data-topic="beyond" data-answer="2">
+  <p class="stem">A service exposes its entire internal model to twelve consumers. Every internal refactor breaks someone. Which ch. 4 pattern compresses its public interface?</p>
+  <ol class="options">
+    <li>Shared kernel</li>
+    <li>Conformist relationship</li>
+    <li>Open-host service</li>
+    <li>Partnership agreement</li>
+  </ol>
+  <div class="explain">An <strong>open-host service</strong> publishes a separate, integration-oriented <em>published language</em>. The interface shrinks, and the internal model can change without breaking consumers. A shared kernel would widen the coupling instead.</div>
+</div>
+
+<div class="q" data-topic="beyond" data-answer="1">
+  <p class="stem">What does the chapter call the failure mode of naive, very fine-grained microservices?</p>
+  <ol class="options">
+    <li>An anemic domain model everywhere</li>
+    <li>Distributed big ball of mud</li>
+    <li>Integration through a shared database</li>
+    <li>A single event-sourced modular monolith</li>
+  </ol>
+  <div class="explain">The <strong>distributed big ball of mud</strong> has all the tangles of a monolith, plus network latency and partial failures.</div>
+</div>
+
+<!-- ============================================================ -->
+<h2>4 · Interview scenario</h2>
+
+<div class="callout">
+<p><strong>Tutorly</strong>, an online tutoring marketplace. Its edge is <em>tutor–student matching</em>, which uses learning-style assessments. It also handles session scheduling, video calls (through a third-party SDK), payments and payouts (through a payment provider), and reviews and ratings. The current architecture plan has <strong>23 microservices</strong>: one per entity (<code>Tutor</code>, <code>Student</code>, <code>Session</code>, <code>Review</code>, <code>Payout</code>, …). The CTO asks you: "Is this a good decomposition? What would you propose instead?"</p>
+</div>
+
+<div class="recall" data-topic="beyond" data-title="Scenario: Tutorly decomposition">
+  <p class="prompt"><strong>(7 min)</strong> Critique the 23-service plan using the chapter's vocabulary. Then propose service boundaries, justify them, and name one way to keep each service's public interface small.</p>
+  <textarea placeholder="Critique …&#10;Proposed services …&#10;Interface compression …"></textarea>
+  <div class="model">
+    <p><strong>Critique:</strong> one service per entity gives <em>shallow</em> services. Every use case (booking a session, paying a tutor) spans several of them, so local complexity is low and <em>global</em> complexity explodes. That's heading for a <em>distributed big ball of mud</em>.</p>
+    <p><strong>Proposal (align with subdomains):</strong></p>
+    <table>
+      <thead><tr><th>Service</th><th>Subdomain</th><th>Type</th></tr></thead>
+      <tbody>
+        <tr><td>Matching</td><td>Tutor–student matching, assessments</td><td>Core</td></tr>
+        <tr><td>Scheduling</td><td>Sessions and availability</td><td>Supporting</td></tr>
+        <tr><td>Billing</td><td>Payments and payouts (wraps the provider)</td><td>Generic + supporting</td></tr>
+        <tr><td>Reviews</td><td>Ratings and reviews</td><td>Supporting</td></tr>
+        <tr><td>Video</td><td>Thin adapter over the SDK, or no service at all</td><td>Generic</td></tr>
+      </tbody>
+    </table>
+    <p><strong>Compression:</strong> Matching acts as an <em>open-host service</em> and publishes, for example, <code>MatchProposed</code> in a published language. Billing puts an <em>anticorruption layer</em> in front of the payment provider. If Matching turns out to be too big, split it later, along its own subdomains, not along entities.</p>
+    <ul class="rubric">
+      <li>Named the entity-per-service plan as shallow services</li>
+      <li>Explained the local vs global complexity trade-off</li>
+      <li>Proposed boundaries aligned with subdomains</li>
+      <li>Did not put one aggregate or entity per service</li>
+      <li>Used OHS/published language or an ACL to compress interfaces</li>
+      <li>Noted that every service is a bounded context, and that a context could be split further later</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>Your results</h2>
+<div id="scoreboard" class="scoreboard"></div>
+<p>Copy your results and paste them into the chat. Next up is <strong>ch. 15, Event-Driven Architecture</strong>: how these services talk to each other without becoming a distributed big ball of mud.</p>
+
+<div class="callout source">
+<p><strong>Primary source:</strong> <a href="https://www.oreilly.com/library/view/learning-domain-driven-design/9781098100124/">Khononov, <em>Learning Domain-Driven Design</em>, ch. 14</a>. Re-read the sections on deep services and on DDD and microservice boundaries. The figure comparing bounded contexts, aggregates, and subdomains as boundaries is the part most worth remembering for interviews.</p>
+</div>
+
+<div class="callout ask">
+<p><strong>Questions?</strong> Ask me in the chat. For example: "When is a modular monolith better than microservices?" or "How would I defend splitting a core subdomain into two services?"</p>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

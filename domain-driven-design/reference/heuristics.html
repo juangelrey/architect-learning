@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Heuristics cheat sheet · DDD review</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<nav class="crumbs"><a href="../index.html">Course map</a> · <a href="glossary.html">Glossary</a></nav>
+
+<div class="kicker">Reference</div>
+<h1>Heuristics cheat sheet</h1>
+<p class="subtitle">The decisions an interviewer will ask you to defend, on one page. Mostly from ch. 1, 4, and 10.</p>
+
+<h2>1 · Classify the subdomain</h2>
+<table>
+  <thead><tr><th></th><th>Core</th><th>Generic</th><th>Supporting</th></tr></thead>
+  <tbody>
+    <tr><td>Competitive advantage</td><td>Yes</td><td>No</td><td>No</td></tr>
+    <tr><td>Complexity</td><td>High</td><td>High (but solved)</td><td>Low</td></tr>
+    <tr><td>Volatility</td><td>High</td><td>Low</td><td>Low</td></tr>
+    <tr><td>Implementation</td><td>In-house, best people</td><td>Buy / adopt open source</td><td>In-house cheaply or outsource</td></tr>
+  </tbody>
+</table>
+<p class="small">Quick test: <em>Could we buy it?</em> → generic. <em>Would doing it better win customers?</em> → core. Otherwise → supporting.</p>
+
+<h2>2 · Choose the integration pattern</h2>
+<table>
+  <thead><tr><th>Situation</th><th>Pattern</th></tr></thead>
+  <tbody>
+    <tr><td>Teams communicate well and succeed or fail together</td><td>Partnership</td></tr>
+    <tr><td>A small piece of model genuinely must be shared</td><td>Shared kernel</td></tr>
+    <tr><td>Upstream won't adapt and its model is fine for you</td><td>Conformist</td></tr>
+    <tr><td>Upstream model is messy or volatile, or you're core</td><td>Anticorruption layer</td></tr>
+    <tr><td>Upstream has many consumers and wants to evolve freely</td><td>Open-host service (+ published language)</td></tr>
+    <tr><td>Integration costs more than duplication</td><td>Separate ways</td></tr>
+  </tbody>
+</table>
+
+<h2>3 · Decision tree: logic → architecture → tests</h2>
+<table>
+  <thead><tr><th>If…</th><th>Business logic</th><th>Architecture</th><th>Testing</th></tr></thead>
+  <tbody>
+    <tr><td>Core + money / audit / deep analysis needed</td><td>Event-sourced domain model</td><td>CQRS</td><td>Pyramid</td></tr>
+    <tr><td>Complex business logic</td><td>Domain model</td><td>Ports &amp; adapters</td><td>Pyramid</td></tr>
+    <tr><td>Simple logic, complex data structures</td><td>Active record</td><td>Layered (4 layers, with service layer)</td><td>Diamond</td></tr>
+    <tr><td>Simple logic, simple data</td><td>Transaction script</td><td>Layered (3 layers)</td><td>Reversed pyramid</td></tr>
+  </tbody>
+</table>
+<p class="small">Choose the logic pattern first. The architecture and testing strategy follow from it. Re-run the tree when a subdomain changes type (ch. 11).</p>
+
+<h2>4 · Boundary sizing</h2>
+<ul>
+  <li><strong>Bounded contexts:</strong> volatile or new core subdomain → start <em>wide</em> and split later (ch. 10).</li>
+  <li><strong>Aggregates:</strong> as small as strong consistency allows. Reference other aggregates by ID (ch. 6).</li>
+  <li><strong>Microservices:</strong> bounded contexts are the widest valid boundary and aggregates the narrowest. Subdomains are the safe middle that tends to give <em>deep</em> services (ch. 14).</li>
+</ul>
+
+<h2>5 · Reliable messaging</h2>
+<table>
+  <thead><tr><th>Need</th><th>Pattern</th></tr></thead>
+  <tbody>
+    <tr><td>Save aggregate + publish event atomically</td><td>Outbox</td></tr>
+    <tr><td>Multi-step process reacting to events</td><td>Saga</td></tr>
+    <tr><td>Multi-step process needing central state or branching</td><td>Process manager</td></tr>
+    <tr><td>Consumer must work while producer is down</td><td>Event-carried state transfer</td></tr>
+  </tbody>
+</table>
+
+<p class="cite">Source: Khononov, <em>Learning Domain-Driven Design</em>, ch. 1, 4, 6, 9, 10, 14, 15. Check the exact decision-tree figure in ch. 10 of the book. No free authoritative copy exists online.</p>
+</body>
+</html>

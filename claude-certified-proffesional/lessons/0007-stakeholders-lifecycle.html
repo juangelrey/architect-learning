@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>D6: Stakeholder communication &amp; lifecycle</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-lesson="0007-stakeholders-lifecycle">
+
+<nav class="crumbs"><a href="../index.html">Course map</a> · <a href="../reference/blueprint.html">Exam blueprint</a> · <a href="../reference/stakeholders-lifecycle.html">Stakeholders &amp; lifecycle cheat sheet</a> · Prev: <a href="0006-governance-safety-risk.html">D5</a> · Next: <a href="0008-developer-productivity.html">D7</a></nav>
+
+<div class="kicker">Lesson 7 · Domain 6 · 14% of the exam</div>
+<h1>Stakeholder communication &amp; lifecycle</h1>
+<p class="subtitle">The consultant's domain. Pin down success before you build, tell people honestly what a probabilistic system can do, and keep it working when models and prompts change.</p>
+
+<div class="meta">
+  <span>≈ 20 minutes</span>
+  <span>3 review + 1 recall + 13 questions + 1 scenario</span>
+  <span><span class="tag d6">D6</span></span>
+</div>
+
+<div class="callout source">
+<p><strong>Where this material comes from.</strong> The blueprint lists five D6 task statements: discovery &amp; requirements, communicating decisions &amp; trade-offs, feedback loops / expectations / SLAs, documentation, and the lifecycle (discovery → design → handoff → monitoring → iteration). <span class="cite"><a href="../sources/ccar-p-exam-guide.pdf">Exam guide §6, D6</a>.</span> The detailed official framing lives in the partner-only course. So this lesson leans on Anthropic docs and engineering posts where they exist. Elsewhere it uses standard architecture practice (Google SRE, Nygard ADRs, C4), and those parts are flagged <em>Generic practice</em>. If your Partner Academy notes say something different, your notes win.</p>
+</div>
+
+<!-- ============================================================ -->
+<h2>0 · Spaced review</h2>
+
+<div class="q" data-topic="d1" data-answer="0">
+  <p class="stem">A client asks what the real difference is between the "workflow" and the "agent" you've proposed. Which statement is accurate?</p>
+  <ol class="options">
+    <li>An agent steers its own process; workflows follow fixed paths</li>
+    <li>An agent uses tools; a workflow never calls any tools</li>
+    <li>An agent runs multiple models; workflows use only one model</li>
+    <li>An agent has memory; a workflow cannot retrieve any documents</li>
+  </ol>
+  <div class="explain"><strong>Control flow is the difference.</strong> Workflows orchestrate LLMs and tools through <em>predefined code paths</em>. Agents <em>dynamically direct</em> their own process and tool use. Both can use tools, retrieval and memory (the augmented LLM), and neither is defined by how many models it uses. <span class="cite"><a href="https://www.anthropic.com/engineering/building-effective-agents">Building effective agents</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d2" data-answer="0">
+  <p class="stem">A support bot's system prompt starts with a per-user greeting and timestamp, followed by a 6k-token static policy document. The cache hit rate is near zero. What is the fix?</p>
+  <ol class="options">
+    <li>Put the static policy first and variable content after it</li>
+    <li>Increase the cache TTL to one hour on every request</li>
+    <li>Switch to a larger model with a bigger context window</li>
+    <li>Add extra cache breakpoints inside the changing per-user greeting text</li>
+  </ol>
+  <div class="explain">A cache hit needs a <strong>100% identical prefix</strong> (tools → system → messages, up to the breakpoint). Because the variable greeting comes first, every request has a new prefix. A longer TTL doesn't help when the prefix never matches. A bigger model has nothing to do with caching. Breakpoints inside text that changes on every request still miss. <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/prompt-caching">Prompt caching</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d3" data-answer="0">
+  <p class="stem">An internal FAQ agent has read-only knowledge tools plus a <code>delete_record</code> tool it never needs. Security asks you to fix the configuration. Best action?</p>
+  <ol class="options">
+    <li>Remove the unneeded delete tool from the agent entirely</li>
+    <li>Keep the tool but log every invocation for auditors</li>
+    <li>Keep the tool but require user confirmation each time</li>
+    <li>Add a system prompt line forbidding use of deletion</li>
+  </ol>
+  <div class="explain"><strong>Remove, don't monitor.</strong> Least privilege means the capability shouldn't exist. Logging only detects misuse after it happens. Confirmation prompts still leave the tool exposed. A prompt instruction is a soft control that injection can bypass. <span class="cite"><a href="../sources/ccar-p-exam-guide.pdf">Exam guide, official sample items</a>.</span></div>
+</div>
+
+<!-- ============================================================ -->
+<h2>1 · Recall first</h2>
+
+<div class="recall" data-topic="d6" data-title="D6 recall">
+  <p class="prompt">Without looking: (a) What four properties make a success criterion good, according to Anthropic's docs? (b) Define SLI, SLO and SLA in one line each. What single question tells an SLO from an SLA? (c) Name the five sections of a Nygard ADR. (d) List Anthropic's four model lifecycle states.</p>
+  <textarea placeholder="(a) …&#10;(b) SLI … SLO … SLA … test: …&#10;(c) …&#10;(d) …"></textarea>
+  <div class="model">
+    <p>(a) <strong>Specific, Measurable, Achievable, Relevant</strong>. Example: "F1 ≥ 0.85 on a held-out set of 10,000 posts", not "classify sentiment well". Most use cases need several criteria at once. <span class="cite"><a href="https://platform.claude.com/docs/en/test-and-evaluate/develop-tests">Define success criteria</a>.</span><br>
+    (b) <strong>SLI</strong>: a quantitative measure of some aspect of the service. <strong>SLO</strong>: a target value or range for an SLI. <strong>SLA</strong>: a contract with users that has consequences for meeting or missing its SLOs. Test: <em>"What happens if the SLOs aren't met?"</em> If there's no explicit consequence, it's an SLO. <span class="cite"><a href="https://sre.google/sre-book/service-level-objectives/">Google SRE book, ch. 4</a>.</span><br>
+    (c) <strong>Title, Context, Decision, Status, Consequences</strong>. <span class="cite"><a href="https://www.cognitect.com/blog/2011/11/15/documenting-architecture-decisions">Nygard</a>.</span><br>
+    (d) <strong>Active → Legacy → Deprecated → Retired</strong>. Requests to retired models fail. <span class="cite"><a href="https://platform.claude.com/docs/en/about-claude/model-deprecations">Model deprecations</a>.</span></p>
+    <ul class="rubric">
+      <li>All four success-criteria properties</li>
+      <li>SLI/SLO/SLA correct, plus the "consequences" test</li>
+      <li>At least 4 of 5 ADR sections, including Consequences</li>
+      <li>Lifecycle states in order; retired = requests fail</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>2 · The ideas that matter</h2>
+
+<h3>Discovery: define success before you design</h3>
+
+<p><strong>Anthropic's own order of operations.</strong> Before prompt engineering you should already have (1) clear success criteria, (2) a way to test against them empirically, and (3) a first-draft prompt. "If not, spend time establishing that first." <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/overview">Prompt engineering overview</a>.</span> Good criteria are <strong>specific, measurable, achievable</strong> (grounded in benchmarks or prior experiments, "not unrealistic to current frontier model capabilities") and <strong>relevant</strong>. Usually they're <strong>multidimensional</strong>: task fidelity, consistency, relevance, tone, privacy, context use, latency, price. <span class="cite"><a href="https://platform.claude.com/docs/en/test-and-evaluate/develop-tests">Define success criteria</a>.</span></p>
+
+<table>
+<thead><tr><th>Discovery question</th><th>Why it matters</th></tr></thead>
+<tbody>
+<tr><td>Business outcome and metric</td><td>Proves value: handle time, cost per case, SLA %. Links to the D1 value pillars.</td></tr>
+<tr><td>Users and current workflow</td><td>Who acts on the output, and what does an error cost them?</td></tr>
+<tr><td>Data availability and quality</td><td>Can the system reach the source data at all? Is it clean? Are there real examples to build evals from?</td></tr>
+<tr><td>Constraints</td><td>Latency (p95, not the average), cost per call, compliance (PII, residency), integration (APIs, identity).</td></tr>
+<tr><td>Success criteria, agreed up front</td><td>Defines "done" and becomes the eval set and the SLOs.</td></tr>
+<tr><td>Feasibility: is an LLM the right tool?</td><td>Deterministic rules belong in code. Use the LLM for language and judgement.</td></tr>
+</tbody>
+</table>
+<p class="cite">Table rows are generic practice, not Anthropic-specific, apart from success criteria (Anthropic docs above).</p>
+
+<p><strong>Feasibility and scope.</strong> Find "the simplest solution possible… This might mean not building agentic systems at all." <span class="cite"><a href="https://www.anthropic.com/engineering/building-effective-agents">Building effective agents</a>.</span> Not every failing criterion is fixed by prompting: "you can sometimes improve latency and cost more easily by selecting a different model". <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/overview">Prompt engineering overview</a>.</span> Start with <strong>one narrow, high-value use case</strong>, prove it against the criteria, then widen. <span class="cite"><em>Generic practice</em>. It matches Anthropic's "start simple" advice.</span></p>
+
+<h3>Communicating decisions and trade-offs</h3>
+
+<p><strong>ADRs (Architecture Decision Records).</strong> Each ADR is short (1–2 pages), numbered sequentially, and kept in the repo. Sections: <em>Title, Context</em> (the forces at play, stated neutrally), <em>Decision</em> ("We will…"), <em>Status</em> (proposed / accepted / deprecated / superseded), and <em>Consequences</em> (positive, negative and neutral). A reversed decision is <strong>not deleted</strong>: you mark it superseded and link the record that replaces it. Use ADRs for "architecturally significant" choices, meaning those that affect structure, non-functional characteristics, dependencies, interfaces or construction techniques. <span class="cite"><a href="https://www.cognitect.com/blog/2011/11/15/documenting-architecture-decisions">Nygard, "Documenting architecture decisions"</a>.</span></p>
+
+<table>
+<thead><tr><th>Audience</th><th>Frame the trade-off as…</th></tr></thead>
+<tbody>
+<tr><td>Executives</td><td>Business metric vs cost per outcome. Error rate in plain numbers, plus the fallback (human review). Timeline and risk.</td></tr>
+<tr><td>Engineers</td><td>Eval results per criterion, latency percentiles, token budgets, model and prompt versions, failure cases.</td></tr>
+<tr><td>Security / legal</td><td>Data flows (a C4 context diagram), data retention and residency, tool permissions, HITL points, audit logs.</td></tr>
+</tbody>
+</table>
+<p class="cite"><em>Generic practice</em> (audience framing).</p>
+
+<p><strong>Cost × latency × quality.</strong> These pull against each other: "Agentic systems often trade latency and cost for better task performance." <span class="cite"><a href="https://www.anthropic.com/engineering/building-effective-agents">Building effective agents</a>.</span> The usual levers are model choice (the smaller models are faster and cheaper), routing, prompt caching and batching. Present a trade-off as an explicit choice with numbers. Never promise "all three".</p>
+
+<p><strong>Say non-determinism out loud.</strong> Agents behave differently from one run to the next ("a task that passed on one eval run might fail on the next"), so report success rates over repeated trials. <strong>pass@k</strong> is the chance that at least one of k tries succeeds. <strong>pass^k</strong> is the chance that all k succeed. At 75% per trial, pass^3 ≈ 42%. Use pass^k when consistency matters, as with customer-facing agents. <span class="cite"><a href="https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents">Demystifying evals for AI agents</a>.</span> "Set temperature to 0" is not an answer: <code>temperature</code>, <code>top_p</code> and <code>top_k</code> are deprecated, and on Claude 4.7 and later models a non-default value returns a 400 error (the Python SDK v1.0+ drops them entirely). <span class="cite"><a href="https://platform.claude.com/docs/en/about-claude/model-deprecations">Model deprecations, API parameters</a>.</span></p>
+
+<h3>Expectations, feedback loops, SLAs</h3>
+
+<p><strong>SLI → SLO → SLA.</strong> Choose a few SLIs based on what users actually want. SRE advice on targets: <em>don't</em> base the target on current performance; keep it simple; avoid absolutes; have as few SLOs as possible; "perfection can wait" (start loose, then tighten). <strong>Keep a safety margin</strong>: an internal SLO tighter than the one you advertise "gives you room to respond". <strong>Don't overachieve</strong>, because users come to rely on what you actually deliver. Use percentiles, not averages, since averages hide the latency tail. An <strong>error budget</strong> (the allowed miss rate) tells you when it's safe to ship changes. <span class="cite"><a href="https://sre.google/sre-book/service-level-objectives/">Google SRE book, ch. 4</a>.</span> For LLM systems, the SLIs include quality ones (e.g. % graded correct on a weekly eval sample, escalation precision) alongside latency and availability. <span class="cite"><em>Generic practice</em> applied to LLMs.</span></p>
+
+<p><strong>Your SLA can't be stronger than the platform beneath it.</strong> On the Claude API, the <strong>Standard</strong> tier is the default and runs with "best-effort availability". Rate limits (RPM, input and output tokens per minute, per model, set by usage tier) are "maximum allowed usage, not guaranteed minimums". Exceeding them returns <strong>429</strong> with a <code>retry-after</code> header. A sharp jump in usage can trigger acceleration limits, so ramp traffic up gradually. Hitting the tier's monthly spend cap also returns 429, but with no <code>retry-after</code>, and retries keep failing. <strong>529</strong> means the API is overloaded across all users. The SDKs retry transient errors twice by default with exponential backoff. Cache reads don't count toward input-token limits on most models, so prompt caching raises effective throughput. <strong>Priority Tier</strong> (99.5% uptime target) can no longer be bought; only existing commitments run until their end date. For guaranteed capacity, talk to sales. So: set internal SLOs and any contractual SLA with these limits in mind, and design retries, fallbacks and capacity headroom. <span class="cite"><a href="https://platform.claude.com/docs/en/api/service-tiers">Service tiers</a>; <a href="https://platform.claude.com/docs/en/api/rate-limits">Rate limits</a>; <a href="https://platform.claude.com/docs/en/api/errors">API errors</a>.</span> API compatibility is stable: every request carries an <code>anthropic-version</code> header (currently <code>2023-06-01</code>, which the SDKs set for you). Within a version, existing input and output parameters are preserved, but new optional fields and enum values can appear, so parse responses tolerantly. <span class="cite"><a href="https://platform.claude.com/docs/en/api/versioning">API versions</a>.</span></p>
+
+<p><strong>"99% accurate" is not a requirement until you pin it down.</strong> Ask: accuracy of <em>what</em>, measured how, on which data, and what does a wrong answer cost? Then turn it into multidimensional criteria. Anthropic's example mixes F1 ≥ 0.85, 99.5% non-toxic outputs, "90% of errors would cause inconvenience rather than egregious error", and 95% of responses under 200 ms. <span class="cite"><a href="https://platform.claude.com/docs/en/test-and-evaluate/develop-tests">Define success criteria</a>.</span></p>
+
+<p><strong>Pilot → evaluate → scale. Demo ≠ production.</strong> "The last mile often becomes most of the journey". The gap between prototype and production "is often wider than anticipated". Start evals small: about 20 real-usage queries were enough to detect large effects (30% → 80%). <span class="cite"><a href="https://www.anthropic.com/engineering/multi-agent-research-system">Multi-agent research system</a>.</span> Or start with 20–50 tasks drawn from real failures. <span class="cite"><a href="https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents">Demystifying evals</a>.</span> Evals should "mirror your real-world task distribution", including edge cases. A demo of hand-picked questions doesn't. <span class="cite"><a href="https://platform.claude.com/docs/en/test-and-evaluate/develop-tests">Develop tests</a>.</span> Feedback comes in layers ("Swiss cheese"): automated evals, production monitoring, A/B tests, user feedback, manual transcript review and systematic human studies. "No single evaluation layer catches every issue." <span class="cite"><a href="https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents">Ibid.</a></span></p>
+
+<h3>Documentation &amp; handoff</h3>
+
+<table>
+<thead><tr><th>Artifact</th><th>For</th><th>Key point</th></tr></thead>
+<tbody>
+<tr><td>C4 System Context diagram</td><td>Everyone, including non-technical people</td><td>One system, its users, and the external systems it touches. Context + Container diagrams "are sufficient for most software development teams"; draw only the levels "that add value". <span class="cite"><a href="https://c4model.com/diagrams/system-context">C4 context</a>; <a href="https://c4model.com/diagrams">C4 diagrams</a>.</span></td></tr>
+<tr><td>ADR log</td><td>Future maintainers</td><td>Why each decision was made, and what it cost. <span class="cite"><a href="https://www.cognitect.com/blog/2011/11/15/documenting-architecture-decisions">Nygard</a>.</span></td></tr>
+<tr><td>Runbook / playbook</td><td>On-call operations</td><td>A recorded playbook gives "roughly a 3x improvement in MTTR" over "winging it". <span class="cite"><a href="https://sre.google/sre-book/introduction/">SRE book, intro</a>.</span> Include Claude-specific steps: check <a href="https://status.claude.com/">status.claude.com</a>, handle 429/529, and attach the <code>request-id</code> to support tickets. <span class="cite"><a href="https://platform.claude.com/docs/en/api/errors">API errors</a>.</span></td></tr>
+<tr><td>Prompt + model version record</td><td>Engineers, auditors</td><td>Prompts versioned like code, plus the pinned model ID and the eval score for each version. <span class="cite"><em>Generic practice</em>.</span></td></tr>
+<tr><td>Eval report</td><td>Engineers, sponsors</td><td>Dataset (source, size, edge cases), grader type (code / LLM / human), results per criterion, repeated-trial rates.</td></tr>
+<tr><td>Handoff doc</td><td>Client team taking ownership</td><td>Owners, SLOs, dashboards, escalation paths, how to re-run evals, the deprecation calendar, and the API usage tier and rate limits. <span class="cite"><em>Generic practice</em>.</span></td></tr>
+</tbody>
+</table>
+
+<h3>Lifecycle: model and prompt change is routine</h3>
+
+<p><strong>Model IDs are pinned snapshots.</strong> From the 4.6 generation on, IDs are dateless (e.g. <code>claude-sonnet-4-6</code>, <code>claude-sonnet-5-5</code>), and the dateless ID <em>is</em> the snapshot, not an evergreen pointer. Anthropic never changes the weights behind an ID; an update ships under a new ID. (Older models have dated IDs such as <code>claude-sonnet-4-5-20250929</code>; their short aliases point to the latest dated snapshot.) Serving infrastructure (router, safety classifiers, sampling) can still cause minor behaviour drift. <span class="cite"><a href="https://platform.claude.com/docs/en/about-claude/models/model-ids-and-versions">Model IDs and versioning</a>.</span></p>
+
+<p><strong>Lifecycle states.</strong> Models move <strong>Active → Legacy</strong> (no more updates) <strong>→ Deprecated</strong> (still works, replacement and retirement date assigned, "likely to be less reliable") <strong>→ Retired</strong> (requests fail). Anthropic emails customers and gives <strong>at least 60 days' notice</strong> before retiring a publicly released model. Example as of October 2026: <code>claude-sonnet-4-5-20250929</code> was deprecated on 30 Sep 2026 and retires on 30 Nov 2026, with <code>claude-sonnet-5-5</code> as the replacement. To prepare, audit usage (Console → Usage → Export, a CSV broken down by API key and model) and test the replacement "well before the retirement date". These dates apply to the Claude API, Claude Platform on AWS and Microsoft Foundry. Amazon Bedrock and Google Cloud set their own schedules. <span class="cite"><a href="https://platform.claude.com/docs/en/about-claude/model-deprecations">Model deprecations</a>.</span></p>
+
+<p><strong>Migrations have breaking changes.</strong> A model upgrade is more than an ID swap. Anthropic publishes a migration guide for each current model. Moving to Sonnet 5.5, for example, means sampling parameters, assistant prefill and forced <code>tool_choice</code> return 400 errors, and thinking budgets are replaced by effort levels ("run your evaluations at two or three levels"). In Claude Code, <code>/claude-api migrate</code> applies the code changes and produces a checklist of items to verify by hand. <span class="cite"><a href="https://platform.claude.com/docs/en/about-claude/models/migration-guide">Migration guides</a>; <a href="https://platform.claude.com/docs/en/models/sonnet-5-5/migration-guide">Sonnet 5.5 migration guide</a>.</span> Track the <a href="https://platform.claude.com/docs/en/release-notes/overview">API release notes</a> along with the deprecations page.</p>
+
+<p><strong>Re-run evals on every model or prompt change.</strong> <em>Capability</em> evals start with a low pass rate and give the team something to climb. <em>Regression</em> evals should stay near 100%. Teams that have evals can "upgrade in days". Teams without them may spend weeks testing. <span class="cite"><a href="https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents">Demystifying evals</a>.</span></p>
+
+<p><strong>Roll out gradually.</strong> Anthropic uses <strong>rainbow deployments</strong>, which gradually shift traffic from the old version to the new one "while keeping both running", because long-running agents can't all switch at once. <span class="cite"><a href="https://www.anthropic.com/engineering/multi-agent-research-system">Multi-agent research system</a>.</span> Roughly 70% of outages come from changes to a live system, hence progressive rollouts, fast detection and safe rollback. <span class="cite"><a href="https://sre.google/sre-book/introduction/">SRE book, intro</a>.</span></p>
+
+<!-- ============================================================ -->
+<h2>3 · Practice</h2>
+
+<div class="q" data-topic="d6" data-answer="0,1">
+  <p class="stem">In a discovery workshop for an insurance claims-summarisation assistant, which <strong>two</strong> items must you establish before starting the architecture? (Choose two.)</p>
+  <ol class="options">
+    <li>Whether claim files exist, are accessible, and are clean</li>
+    <li>Latency, cost, and compliance limits the solution must respect</li>
+    <li>Which vector database vendor the client's engineers prefer most</li>
+    <li>How many subagents the final orchestration design will need</li>
+  </ol>
+  <div class="explain">You can't design without knowing about <strong>data availability and quality</strong> or the <strong>constraints</strong>: they rule options in and out. Vendor preference is an implementation detail that comes later. Subagent count is an <em>output</em> of design, not a discovery input. <span class="cite"><a href="https://platform.claude.com/docs/en/test-and-evaluate/develop-tests">Define success criteria</a> (latency, price, privacy as criteria); framing is generic practice.</span></div>
+</div>
+
+<div class="q" data-topic="d6" data-answer="0">
+  <p class="stem">A client wants Claude to compute exact tax totals from structured ledgers. The rules are fully specified, and volume is millions of rows a day. What do you advise?</p>
+  <ol class="options">
+    <li>Implement the rules in deterministic code; use Claude only for language</li>
+    <li>Use the largest Claude model at maximum effort for every calculation</li>
+    <li>Add few-shot examples until the model matches the rules engine exactly</li>
+    <li>Run three Claude calls per ledger and take the majority answer</li>
+  </ol>
+  <div class="explain">Part of feasibility is asking whether an LLM is the right tool at all. Fully specified rules belong in <strong>code</strong>, which is exact, cheap and auditable. Claude can still help where language matters (e.g. explaining a result). A bigger model, few-shot examples and voting all reduce error but never guarantee exactness, and they multiply cost at this volume. <span class="cite"><a href="https://www.anthropic.com/engineering/building-effective-agents">Building effective agents</a> ("simplest solution possible").</span></div>
+</div>
+
+<div class="q" data-topic="d6" data-answer="0">
+  <p class="stem">A bank's CIO wants "Claude everywhere" across twelve departments this year. As the architect, what do you recommend first?</p>
+  <ol class="options">
+    <li>Pilot one narrow, high-value use case with measurable success criteria</li>
+    <li>Build a shared platform for all twelve departments before piloting</li>
+    <li>Launch simultaneous pilots in every department to maximise early learning</li>
+    <li>Pick the department with the loudest sponsor, ignoring data readiness</li>
+  </ol>
+  <div class="explain"><strong>Start narrow, prove value, then scale.</strong> A platform built before any proven use case is speculative. Twelve parallel pilots spread eval and change-management effort too thin. Sponsor volume doesn't substitute for data readiness. <span class="cite">Generic practice, consistent with <a href="https://www.anthropic.com/engineering/building-effective-agents">Building effective agents</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d6" data-answer="0">
+  <p class="stem">Six months after launch, new engineers keep asking why the team chose RAG on a small model instead of a larger model with the whole corpus in context. What should have captured this?</p>
+  <ol class="options">
+    <li>A short ADR recording context, decision, status, and consequences</li>
+    <li>A code-level diagram showing every class in the service</li>
+    <li>The slide deck from the original executive steering meeting</li>
+    <li>A wiki page overwritten whenever the decision later changes</li>
+  </ol>
+  <div class="explain">An <strong>ADR</strong> records the forces at play, the decision, and its positive and negative consequences, in the repo next to the code. A class diagram shows <em>structure</em>, not <em>why</em>. A slide deck loses the context and isn't maintained. An overwritten page destroys the history: superseded ADRs are kept and linked, never deleted. <span class="cite"><a href="https://www.cognitect.com/blog/2011/11/15/documenting-architecture-decisions">Nygard</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d6" data-answer="0,1">
+  <p class="stem">You're presenting a CFO with a decision to route most queries to a small model and hard ones to a larger model. Which <strong>two</strong> belong in the executive framing? (Choose two.)</p>
+  <ol class="options">
+    <li>Cost per resolved query and the measured quality change versus today</li>
+    <li>Expected error rate in plain numbers, plus the human fallback path</li>
+    <li>Per-token input and output prices plus cache write multipliers per model</li>
+    <li>The full prompt diff and routing classifier confusion matrix for review</li>
+  </ol>
+  <div class="explain">Executives decide on <strong>business outcome vs cost</strong> and <strong>risk plus mitigation</strong>. Token price tables and confusion matrices are the right detail for the engineering review, not for the CFO. <span class="cite">Generic practice (audience framing).</span></div>
+</div>
+
+<div class="q" data-topic="d6" data-answer="0">
+  <p class="stem">A sponsor asks, "Will the assistant give the same answer every time we ask the same question?" What is the honest, accurate answer?</p>
+  <ol class="options">
+    <li>No; we measure consistency over repeated runs and design for variation</li>
+    <li>Yes; setting temperature to zero makes current Claude models fully deterministic</li>
+    <li>Yes; pinning the model ID guarantees identical outputs for identical inputs</li>
+    <li>No; so we will skip evals because results cannot be measured</li>
+  </ol>
+  <div class="explain">Outputs vary from run to run, so you report <strong>rates over repeated trials</strong> (pass^k when consistency matters). On Claude 4.7+ a non-default <code>temperature</code> returns a 400 error, and it never guaranteed determinism anyway. A pinned ID fixes the <em>weights</em>, not the sampled outputs. Variation is a reason to run more evals, not fewer. <span class="cite"><a href="https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents">Demystifying evals</a>; <a href="https://platform.claude.com/docs/en/about-claude/model-deprecations">Model deprecations</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d6" data-answer="0">
+  <p class="stem">A client contract says the provider issues service credits if monthly p95 response latency exceeds 4 seconds. This clause is a…</p>
+  <ol class="options">
+    <li>Service level agreement (SLA)</li>
+    <li>Service level objective (SLO)</li>
+    <li>Service level indicator (SLI)</li>
+    <li>Error budget burn policy</li>
+  </ol>
+  <div class="explain">It has a <strong>consequence</strong> (credits), so it's an <strong>SLA</strong>. p95 latency is the SLI, and "≤ 4 s" is the SLO it contains. An error budget is the allowed miss rate you use internally to pace releases. <span class="cite"><a href="https://sre.google/sre-book/service-level-objectives/">SRE book, ch. 4</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d6" data-answer="0,1">
+  <p class="stem">A pilot scored 97% correct on 200 eval cases. The sponsor wants to write "97% accuracy" into the client contract. Which <strong>two</strong> responses are sound? (Choose two.)</p>
+  <ol class="options">
+    <li>Set the contractual SLA looser than the internal SLO target</li>
+    <li>Start with a loose target, then tighten using production data</li>
+    <li>Commit to the pilot's 97% because it was actually measured</li>
+    <li>Promise 100% accuracy, since a human reviews every flagged answer</li>
+  </ol>
+  <div class="explain">SRE: <strong>keep a safety margin</strong> (an internal SLO tighter than the advertised one) and <strong>perfection can wait</strong> (start loose, then tighten). Don't base targets on current performance, since 200 pilot cases aren't the production distribution. Avoid absolutes: human review of <em>flagged</em> answers does nothing about unflagged errors. <span class="cite"><a href="https://sre.google/sre-book/service-level-objectives/">SRE book, ch. 4</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d6" data-answer="0">
+  <p class="stem">A client wants a contractual 99.9% monthly availability SLA for an assistant that calls the Claude API on the default Standard tier. What is the sound response?</p>
+  <ol class="options">
+    <li>Offer a looser SLA, with retries, fallbacks, and internal SLOs</li>
+    <li>Sign 99.9% because Standard tier guarantees capacity for every request</li>
+    <li>Buy a new Priority Tier commitment to inherit its uptime</li>
+    <li>Raise max_tokens and rate limits so overload errors disappear entirely</li>
+  </ol>
+  <div class="explain">Standard tier is <strong>best-effort</strong>, and rate limits are maximums, not guaranteed minimums. 429s and 529s (overload across all users) can still happen, so your SLA has to sit below what the platform supports, with retries, fallbacks and a tighter internal SLO. Standard guarantees nothing per request. New Priority Tier commitments are <strong>no longer sold</strong>, and its target was 99.5% anyway. <code>max_tokens</code> doesn't affect rate limits and does nothing about overload. <span class="cite"><a href="https://platform.claude.com/docs/en/api/service-tiers">Service tiers</a>; <a href="https://platform.claude.com/docs/en/api/rate-limits">Rate limits</a>; <a href="https://platform.claude.com/docs/en/api/errors">API errors</a>; <a href="https://sre.google/sre-book/service-level-objectives/">SRE ch. 4</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d6" data-answer="0">
+  <p class="stem">A demo built on ten hand-picked questions impressed the board. In a limited beta, users hit many wrong or evasive answers. What is the right next step?</p>
+  <ol class="options">
+    <li>Build an eval set mirroring real traffic, including edge cases</li>
+    <li>Switch to the most capable model and rerun the demo</li>
+    <li>Add the ten demo questions as few-shot examples to prompts</li>
+    <li>Expand to all users quickly to collect more feedback faster</li>
+  </ol>
+  <div class="explain">This is the <strong>demo-vs-production gap</strong>. Evals must "mirror your real-world task distribution" and include edge cases. Start with ~20–50 real cases and grow. A bigger model is a guess made without a diagnosis. Overfitting to the demo set hides the problem. Scaling a known-bad experience burns trust. <span class="cite"><a href="https://platform.claude.com/docs/en/test-and-evaluate/develop-tests">Develop tests</a>; <a href="https://www.anthropic.com/engineering/multi-agent-research-system">Multi-agent research system</a> ("last mile").</span></div>
+</div>
+
+<div class="q" data-topic="d6" data-answer="0,1">
+  <p class="stem">Anthropic emails that <code>claude-sonnet-4-5-20250929</code>, used in your production app, is deprecated and retires on 30 November 2026. Which <strong>two</strong> actions come first? (Choose two.)</p>
+  <ol class="options">
+    <li>Run regression evals on the replacement model before cutting over</li>
+    <li>Export the Console usage CSV to find every affected key</li>
+    <li>Keep the deprecated model, since retired models still answer slowly</li>
+    <li>Wait until retirement day, then swap the ID in production</li>
+  </ol>
+  <div class="explain">Test the replacement <strong>well before retirement</strong> (regression evals), and <strong>audit usage</strong> through the Console Usage export, broken down by key and model, so no call site gets missed. Requests to retired models <em>fail</em>; they don't slow down. A swap on the last day leaves no time to fix breaking changes (on Sonnet 5.5, sampling parameters, prefill and forced tool choice return 400s) or to retune prompts and effort. <span class="cite"><a href="https://platform.claude.com/docs/en/models/sonnet-5-5/migration-guide">Sonnet 5.5 migration guide</a>.</span> <span class="cite"><a href="https://platform.claude.com/docs/en/about-claude/model-deprecations">Model deprecations</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d6" data-answer="0">
+  <p class="stem">Your research agents run for up to an hour. A new prompt version broke agents that were mid-task when you deployed it. Which deployment approach prevents this?</p>
+  <ol class="options">
+    <li>Rainbow deployment: keep both versions live and shift traffic over gradually</li>
+    <li>Big-bang deployment: switch every running agent to the new version instantly</li>
+    <li>Deployment freeze: wait until no agent anywhere is running any work</li>
+    <li>Hotfix in place: patch the live prompt while running agents continue</li>
+  </ol>
+  <div class="explain"><strong>Rainbow deployments</strong> keep both versions running while traffic shifts, so in-flight agents finish on the version they started with. Big-bang and in-place edits cause exactly this breakage. A freeze is impractical for a service that's always busy. <span class="cite"><a href="https://www.anthropic.com/engineering/multi-agent-research-system">Multi-agent research system</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d6" data-answer="0">
+  <p class="stem">The client's CIO and a security reviewer need one diagram showing the assistant, its user groups, and the external systems it touches (CRM, Claude API, identity provider). Which C4 view fits?</p>
+  <ol class="options">
+    <li>A system context diagram</li>
+    <li>A code-level class diagram</li>
+    <li>A component internals diagram</li>
+    <li>A deployment node diagram</li>
+  </ol>
+  <div class="explain">The <strong>System Context</strong> diagram shows one system, its people and its external systems, for "both technical and non-technical people". Component and code views go inside the system, which is too much detail for this audience. Deployment is a supplementary infrastructure view. <span class="cite"><a href="https://c4model.com/diagrams/system-context">C4: system context</a>.</span></div>
+</div>
+
+<!-- ============================================================ -->
+<h2>4 · Architect scenario</h2>
+
+<div class="callout">
+<p><strong>Calloway Building Society</strong> (a made-up client). The COO saw a vendor demo and wants a customer-facing mortgage chatbot live in <strong>4 weeks</strong> with "<strong>99% accuracy</strong>". The inputs are 300 PDF product sheets (some outdated), 18 months of contact-centre transcripts, and a core banking API that IT says is "hard to integrate". Compliance warns that anything resembling personalised financial advice needs regulated review. The current contact centre answers 70% of mortgage queries without escalation.</p>
+</div>
+
+<div class="recall" data-topic="d6" data-title="Scenario: Calloway '99% in 4 weeks'">
+  <p class="prompt"><strong>(8 min)</strong> (a) What do you ask in discovery, and how do you turn "99% accuracy" into criteria? (b) What do you scope for the 4 weeks, and what do you tell the COO? (c) Which SLI/SLO/SLA would you propose? (d) What do you document and hand off? (e) How do you keep it healthy after launch, including model changes?</p>
+  <textarea placeholder="(a) … (b) … (c) … (d) … (e) …"></textarea>
+  <div class="model">
+    <p>(a) <strong>Discovery:</strong> the business outcome (containment rate? cost per contact?), users, data quality (which product sheets are current, and who owns them), integration (is account data needed at all in phase 1?), compliance boundaries, and latency and cost limits. <strong>"99% of what?"</strong> Split it into multidimensional criteria: answer correctness against current product sheets on a graded eval sample; correct refusal or escalation on advice-like questions (target near 100%); groundedness / citation present; p95 latency; cost per conversation. Benchmark against the human baseline (70% resolved without escalation), so the targets are <em>achievable</em>.<br>
+    (b) <strong>Scope narrowly:</strong> read-only product Q&amp;A over the curated, current sheets. No account data, no core banking integration, advice-like questions escalated to a human. Plan: week 1 discovery plus a 50–100-case eval set built from real transcripts, including edge cases; weeks 2–3 build and iterate against the evals; week 4 an internal or shadow pilot, not a public launch. Tell the COO honestly that outputs vary run to run, report rates from repeated trials, and show the error rate in plain numbers with the human fallback. Explain the demo-vs-production gap.<br>
+    (c) <strong>SLIs:</strong> % correct on a weekly graded sample of production conversations, advice-escalation recall, p95 latency, availability. <strong>Internal SLOs</strong> tighter than anything in the contract. Leave the <strong>SLA</strong> (if any) for after the pilot produces production data: start loose, then tighten, and no "99%" absolutes. Keep it below what the Claude API tier supports (Standard is best-effort; plan for 429/529 retries and a fallback). Use an error budget to decide when prompt or model changes can ship.<br>
+    (d) <strong>Docs:</strong> ADRs (e.g. "RAG over curated sheets; no account integration in phase 1"), a C4 context diagram for compliance and the CIO, an eval report (dataset, graders, per-criterion results), a prompt and model version record (pinned model ID), a runbook (bad answer reported, stale sheet, outage), and a handoff doc with owners.<br>
+    (e) <strong>Lifecycle:</strong> monitor in layers (evals, production sampling, user feedback, transcript review), and feed bad answers into the regression set. Re-run regression evals on <em>every</em> prompt or model change. Track the deprecation page and release notes (≥ 60 days' notice), and test replacements early using the model's migration guide. Roll out gradually with rollback. Re-index when product sheets change.</p>
+    <ul class="rubric">
+      <li>Challenged "99%": defined what's measured and turned it into multidimensional criteria</li>
+      <li>Asked about data quality (outdated sheets) and compliance before design</li>
+      <li>Narrow phase-1 scope; advice questions escalated; 4 weeks = pilot, not full launch</li>
+      <li>Honest about non-determinism; error rates plus fallback for the exec</li>
+      <li>SLI → internal SLO → (later, looser) SLA within API tier limits; no absolutes; error budget</li>
+      <li>ADR + C4 context + eval report + runbook + handoff</li>
+      <li>Regression evals on model/prompt change; deprecation tracking; gradual rollout</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>5 · Go deeper</h2>
+
+<div class="callout source">
+<p><strong>Primary source (read this):</strong> Anthropic, <a href="https://platform.claude.com/docs/en/test-and-evaluate/develop-tests">"Define success criteria and build evaluations"</a>. It's the closest Anthropic-authored match for D6 discovery and expectation-setting: SMART-style criteria, multidimensional targets and eval design. Then read <a href="https://sre.google/sre-book/service-level-objectives/">SRE book ch. 4</a> for the SLA vocabulary.</p>
+</div>
+
+<div class="callout ask">
+<p><strong>Ask your teacher.</strong> D6 is where the partner-only course matters most. If its stakeholder or lifecycle framing differs from this lesson (e.g. named phases, a specific discovery template), paste it in the chat and the lesson gets fixed.</p>
+</div>
+
+<div id="scoreboard" class="scoreboard"></div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

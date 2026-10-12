@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch. 16: Data mesh</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-lesson="0016-data-mesh">
+
+<nav class="crumbs"><a href="../index.html">Course map</a> · <a href="../reference/glossary.html">Glossary</a> · Prev: <a href="0015-event-driven-architecture.html">Ch. 15</a> · <a href="../index.html">Course map</a></nav>
+
+<div class="kicker">Chapter 16</div>
+<h1>Data mesh</h1>
+<p class="subtitle">DDD's decomposition, applied to analytical data: the bounded contexts that produce the data also own and serve it.</p>
+
+<div class="meta">
+  <span>≈ 12 minutes</span>
+  <span>2 review + 7 questions + 1 scenario</span>
+  <span><span class="tag beyond">Part IV</span></span>
+</div>
+
+<!-- ============================================================ -->
+<h2>0 · Spaced review: earlier chapters</h2>
+
+<div class="q" data-topic="tactical" data-answer="2">
+  <span class="tag tactical">Part II</span>
+  <p class="stem">Which pattern separates the model that executes commands from models built for queries, kept in sync by projections?</p>
+  <ol class="options">
+    <li>Layered architecture</li>
+    <li>Hexagonal architecture</li>
+    <li>CQRS architecture</li>
+    <li>Transaction script</li>
+  </ol>
+  <div class="explain"><strong>CQRS</strong>: one command-execution model, plus as many read models as you need. Keep it in mind, because this chapter reuses the idea for analytical data. <span class="cite">Ch. 8.</span></div>
+</div>
+
+<div class="q" data-topic="strategic" data-answer="3">
+  <span class="tag strategic">Part I</span>
+  <p class="stem">Which ownership arrangement does ch. 3 allow?</p>
+  <ol class="options">
+    <li>Two teams sharing one bounded context</li>
+    <li>No team owning a bounded context</li>
+    <li>Every team co-owning every bounded context</li>
+    <li>One team owning several bounded contexts</li>
+  </ol>
+  <div class="explain">Each context is owned by <strong>exactly one team</strong>, and one team can own several contexts. Data mesh carries the same ownership idea over to analytical data. <span class="cite">Ch. 3.</span></div>
+</div>
+
+<!-- ============================================================ -->
+<h2>1 · Recall first</h2>
+
+<div class="recall" data-topic="warmup" data-title="Data mesh recall">
+  <p class="prompt">Without looking: (a) How do analytical data models differ from operational ones? (b) What are the main weaknesses of data warehouses and data lakes? (c) Name the four principles of data mesh.</p>
+  <textarea placeholder="(a) …&#10;(b) …&#10;(c) …"></textarea>
+  <div class="model">
+    <p>(a) <strong>Operational</strong> (OLTP) models serve real-time transactions on business entities. <strong>Analytical</strong> (OLAP) models serve insights over large volumes of history. They're structured as <em>fact tables</em> (business activities) and <em>dimension tables</em> (descriptive attributes), typically in a star or snowflake schema.<br>
+    (b) <strong>Warehouse:</strong> ETL scripts pull from operational databases into one enterprise-wide model. That model is as unrealistic as one company-wide ubiquitous language, and the ETL is coupled to operational implementation details. <strong>Lake:</strong> raw data is dumped in and transformed later (ELT). It's still coupled to implementation details and risks becoming a <em>data swamp</em>.<br>
+    (c) <strong>Domain-oriented ownership</strong>, <strong>data as a product</strong>, <strong>self-serve data platform</strong>, <strong>federated computational governance</strong>.</p>
+    <ul class="rubric">
+      <li>OLTP vs OLAP, plus facts and dimensions</li>
+      <li>Warehouse: enterprise-wide model + coupling to operational internals</li>
+      <li>Lake: still coupled, and the data-swamp risk</li>
+      <li>All four data mesh principles</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>2 · The ideas that matter</h2>
+
+<p><strong>Two kinds of model.</strong> Operational systems model business entities for real-time transactions. Analytical systems model <em>facts</em> (things that happened, like business activities and events) and <em>dimensions</em> (the attributes you slice facts by), arranged in star or snowflake schemas. They answer different questions, so they need different models. <span class="cite">Ch. 16.</span></p>
+
+<p><strong>Why the classic platforms struggle.</strong> A <em>data warehouse</em> extracts from operational databases into one enterprise-wide analytical model. Like a single company-wide ubiquitous language, that model rarely works, and the ETL breaks whenever an operational schema changes. A <em>data lake</em> stores raw data and transforms it later. It's more flexible, but it's still coupled to operational internals and tends to turn into a swamp.</p>
+
+<p><strong>Data mesh = DDD for analytics.</strong> Its four principles:</p>
+<ul>
+  <li><strong>Domain-oriented ownership</strong>: analytical data is decomposed along the same lines as operational systems (bounded contexts), and each context's team owns its analytical data.</li>
+  <li><strong>Data as a product</strong>: analytical data is served through well-defined, documented, discoverable interfaces, with real quality guarantees, much like an <em>open-host service</em> for analytics.</li>
+  <li><strong>Self-serve data platform</strong>: a platform team gives domain teams the tooling to build and publish data products.</li>
+  <li><strong>Federated computational governance</strong>: shared standards (interoperability, security, compliance) are agreed across teams and enforced by the platform automatically.</li>
+</ul>
+
+<p><strong>DDD tools that fit.</strong> A bounded context can produce its analytical model as a <em>projection</em> (the CQRS idea), and an event-sourced context can derive it straight from its events. The analytical interface is a public contract, separate from the operational internals.</p>
+
+<p class="cite">See also <a href="https://martinfowler.com/articles/data-mesh-principles.html">Dehghani, "Data Mesh Principles and Logical Architecture"</a>, the origin of the four principles.</p>
+
+<!-- ============================================================ -->
+<h2>3 · Practice</h2>
+
+<div class="q" data-topic="beyond" data-answer="1">
+  <p class="stem">In an analytical model, a table recording every completed delivery, with timestamps and amounts, is a…</p>
+  <ol class="options">
+    <li>Dimension table</li>
+    <li>Fact table</li>
+    <li>Lookup table</li>
+    <li>Snapshot table</li>
+  </ol>
+  <div class="explain"><strong>Fact tables</strong> record business activities that happened. <em>Dimension tables</em> describe them: customer, region, courier type, and so on.</div>
+</div>
+
+<div class="q" data-topic="beyond" data-answer="3">
+  <p class="stem">Engineers rename a column in the Orders database, and that night the warehouse's ETL silently breaks. Which weakness does this show?</p>
+  <ol class="options">
+    <li>Analytical models cannot represent order data at all</li>
+    <li>Data warehouses only work with event-sourced operational systems</li>
+    <li>Star schemas cannot handle renamed columns by design</li>
+    <li>ETL couples analytics to the operational implementation details</li>
+  </ol>
+  <div class="explain">The ETL reads <strong>implementation details</strong> (operational schemas) instead of a published contract. Data mesh fixes this by having the owning team serve analytical data through an explicit interface.</div>
+</div>
+
+<div class="q" data-topic="beyond" data-answer="0">
+  <p class="stem">Why does a single enterprise-wide warehouse model run into the same problem DDD describes in ch. 3?</p>
+  <ol class="options">
+    <li>One model cannot fit every context's meaning consistently</li>
+    <li>Analytical models must always mirror one operational schema</li>
+    <li>Enterprise models require a shared kernel between teams</li>
+    <li>Warehouses cannot store data from multiple bounded contexts</li>
+  </ol>
+  <div class="explain">It's the "one ubiquitous language for the whole company" mistake again. "Customer" or "lead" means different things in different contexts, so a single model ends up serving nobody well.</div>
+</div>
+
+<div class="q" data-topic="beyond" data-answer="2">
+  <p class="stem">The Billing team publishes a documented, versioned, discoverable "monthly revenue" dataset with quality guarantees. Which data mesh principle is this most directly?</p>
+  <ol class="options">
+    <li>Federated computational governance</li>
+    <li>Self-serve data platform</li>
+    <li>Data as product</li>
+    <li>Centralized data ownership</li>
+  </ol>
+  <div class="explain"><strong>Data as a product</strong>: analytical data with real consumers, a clear interface, and quality guarantees. "Centralized ownership" is the opposite of data mesh.</div>
+</div>
+
+<div class="q" data-topic="beyond" data-answer="1">
+  <p class="stem">All data products must use the same customer-ID format and pass automated PII checks. Teams agreed the rule together, and the platform enforces it. Which principle is this?</p>
+  <ol class="options">
+    <li>Domain ownership</li>
+    <li>Federated governance</li>
+    <li>Product thinking</li>
+    <li>Central warehouse</li>
+  </ol>
+  <div class="explain"><strong>Federated computational governance</strong>: global standards decided jointly by the domain teams and enforced automatically (computationally) by the platform.</div>
+</div>
+
+<div class="q" data-topic="beyond" data-answer="0">
+  <p class="stem">How can an event-sourced bounded context produce its analytical data product with DDD tools?</p>
+  <ol class="options">
+    <li>Project its events into an analytical read model</li>
+    <li>Let analysts query its event store tables directly</li>
+    <li>Copy its operational database nightly into the lake</li>
+    <li>Share its aggregates with the analytics team's codebase</li>
+  </ol>
+  <div class="explain">A <strong>projection</strong> (the CQRS idea) builds a purpose-made analytical model from the events, behind a published interface. The other options leak implementation details again.</div>
+</div>
+
+<div class="q" data-topic="beyond" data-answer="3">
+  <p class="stem">What does a data lake typically do differently from a data warehouse?</p>
+  <ol class="options">
+    <li>Enforces one enterprise-wide model before any data lands</li>
+    <li>Removes all coupling to operational system implementation details</li>
+    <li>Assigns analytical data ownership to each producing team</li>
+    <li>Stores raw data first, transforming it later on</li>
+  </ol>
+  <div class="explain">A lake ingests <strong>raw data</strong> and transforms it later (ELT, not ETL). That's more flexible, but it doesn't remove the coupling to operational internals, and without discipline it becomes a data swamp. Per-team ownership is data mesh, not a lake.</div>
+</div>
+
+<!-- ============================================================ -->
+<h2>4 · Interview scenario</h2>
+
+<div class="callout">
+<p><strong>FitLoop</strong>, a gym chain with an app. It has bounded contexts for <em>Memberships</em>, <em>Class Booking</em>, <em>Personal Training</em> (its core: adaptive training plans), and <em>Payments</em> (wrapping a provider). A central data team of four people maintains a warehouse fed by nightly ETL from every operational database. They're three months behind on requests, the ETL breaks often, and nobody agrees on what an "active member" is. The VP of Data asks: "Should we move to a data mesh? What would it look like here?"</p>
+</div>
+
+<div class="recall" data-topic="beyond" data-title="Scenario: FitLoop data mesh">
+  <p class="prompt"><strong>(7 min)</strong> Diagnose today's problems in the chapter's terms. Then sketch a data mesh: who owns which data products, how they're produced, what the platform team does, and how governance works. Name one risk or cost.</p>
+  <textarea placeholder="Diagnosis …&#10;Data products & owners …&#10;Platform …&#10;Governance …&#10;Risk …"></textarea>
+  <div class="model">
+    <p><strong>Diagnosis:</strong> the central team is a bottleneck. The ETL is coupled to operational implementation details, so it breaks. And "active member" has several meanings, the ch. 3 problem: one enterprise-wide model can't hold every context's meaning.</p>
+    <table>
+      <thead><tr><th>Context / team</th><th>Example data product</th></tr></thead>
+      <tbody>
+        <tr><td>Memberships</td><td>Membership facts (joins, cancellations, freezes), plus the official definition of an "active membership"</td></tr>
+        <tr><td>Class Booking</td><td>Bookings and attendance facts, class dimensions</td></tr>
+        <tr><td>Personal Training</td><td>Plan adherence and progress facts (core, so high value)</td></tr>
+        <tr><td>Payments</td><td>Revenue facts</td></tr>
+      </tbody>
+    </table>
+    <p><strong>Produced by:</strong> each team <em>projects</em> its analytical model from its operational model or events, and serves it through a documented, versioned interface (data as a product).</p>
+    <p><strong>Platform:</strong> the former central data team becomes the <em>self-serve platform</em> team: storage, pipelines, a catalog, and access control.</p>
+    <p><strong>Governance:</strong> <em>federated computational</em>. Shared member-ID and date formats and PII rules, agreed across teams and enforced by the platform.</p>
+    <p><strong>Risk:</strong> every domain team needs data skills and capacity. With only four contexts, it may be worth starting with the most painful products before going all in.</p>
+    <ul class="rubric">
+      <li>Diagnosed the bottleneck and coupling to implementation details</li>
+      <li>Linked the "active member" confusion to the enterprise-model problem</li>
+      <li>Assigned data products to the owning bounded-context teams</li>
+      <li>Produced data via projections behind a published interface</li>
+      <li>Repurposed the central team as the self-serve platform</li>
+      <li>Described federated computational governance</li>
+      <li>Named a real cost or risk</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>Your results</h2>
+<div id="scoreboard" class="scoreboard"></div>
+<p><strong>That's the last chapter, and the course is complete.</strong> Copy your results and paste them into the chat. Then go back to the <a href="../index.html">course map</a> and redo any chapter where you scored low. Each lesson reshuffles its options, so a retake is real retrieval practice. Spacing the retakes over days and weeks builds the durable recall an interview needs.</p>
+
+<div class="callout source">
+<p><strong>Primary source:</strong> <a href="https://www.oreilly.com/library/view/learning-domain-driven-design/9781098100124/">Khononov, <em>Learning Domain-Driven Design</em>, ch. 16</a>, then <a href="https://martinfowler.com/articles/data-mesh-principles.html">Dehghani's article</a> for a deeper look at the four principles.</p>
+</div>
+
+<div class="callout ask">
+<p><strong>Questions?</strong> Ask me in the chat. For example: "Is a data product the same as a bounded context?" or "When is a central warehouse still the right call?"</p>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

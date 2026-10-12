@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch. 5: Implementing simple business logic</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-lesson="0005-implementing-simple-business-logic">
+
+<nav class="crumbs"><a href="../index.html">Course map</a> · <a href="../reference/glossary.html">Glossary</a> · <a href="../reference/heuristics.html">Heuristics</a> · Prev: <a href="0004-integrating-bounded-contexts.html">Ch. 4</a> · Next: <a href="0006-tackling-complex-business-logic.html">Ch. 6</a></nav>
+
+<div class="kicker">Chapter 5</div>
+<h1>Implementing simple business logic</h1>
+<p class="subtitle">Not everything deserves a domain model. Two plain patterns cover most supporting subdomains, as long as you respect their pitfalls.</p>
+
+<div class="meta">
+  <span>≈ 12 minutes</span>
+  <span>2 review + 7 questions + 1 scenario</span>
+  <span><span class="tag tactical">Part II</span></span>
+</div>
+
+<!-- ============================================================ -->
+<h2>0 · Spaced review: ch. 1 &amp; 4</h2>
+
+<div class="q" data-topic="strategic" data-answer="2">
+  <p class="stem">Your supporting context consumes an upstream model that's good enough for your needs. The upstream team won't adapt anything for you. Which pattern fits?</p>
+  <ol class="options">
+    <li>Anticorruption layer</li>
+    <li>Shared kernel</li>
+    <li>Conformist relationship</li>
+    <li>Open-host service</li>
+  </ol>
+  <div class="explain">The upstream has the power and its model is good enough, so <strong>conform</strong>. An anticorruption layer would cost more than it protects, especially for a supporting subdomain. <span class="cite">Ch. 4.</span></div>
+</div>
+
+<div class="q" data-topic="strategic" data-answer="1">
+  <p class="stem">Which subdomain type typically looks like CRUD screens or ETL jobs?</p>
+  <ol class="options">
+    <li>Core subdomain</li>
+    <li>Supporting subdomain</li>
+    <li>Generic subdomain</li>
+    <li>Bounded context</li>
+  </ol>
+  <div class="explain"><strong>Supporting</strong> subdomains have simple logic, and that's exactly the territory of this chapter's patterns. <span class="cite">Ch. 1.</span></div>
+</div>
+
+<!-- ============================================================ -->
+<h2>1 · Recall first</h2>
+
+<div class="recall" data-topic="warmup" data-title="Simple logic patterns recall">
+  <p class="prompt">Without looking: (a) Define <em>transaction script</em> and <em>active record</em>. (b) What must a transaction script guarantee? Name two ways that guarantee breaks in practice. (c) When would you choose active record over transaction script?</p>
+  <textarea placeholder="(a) …&#10;(b) …&#10;(c) …"></textarea>
+  <div class="model">
+    <p>(a) <strong>Transaction script</strong>: business logic organized as procedures, each handling one request from the presentation layer. <strong>Active record</strong>: objects that wrap a data structure (such as a database row) and carry their own persistence methods. The logic is still script-like, but it operates on these objects.<br>
+    (b) Each operation must be <strong>transactional</strong>: it succeeds completely or fails completely. It breaks when one operation has to update two systems (for example, write to the database and publish a message), which is an implicit distributed transaction. It also breaks when a retry repeats a non-idempotent operation.<br>
+    (c) When the logic is still simple but the <strong>data structures are complex</strong>.</p>
+    <ul class="rubric">
+      <li>Both definitions correct</li>
+      <li>"Transactional: all or nothing"</li>
+      <li>Named a distributed-transaction pitfall</li>
+      <li>Named an idempotency or retry pitfall</li>
+      <li>Active record for complex data structures with simple logic</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>2 · The ideas that matter</h2>
+
+<p><strong>Transaction script</strong> (a pattern from Fowler's <em>Patterns of Enterprise Application Architecture</em>): each public operation is a procedure that runs from start to finish. It's the simplest pattern, and its one hard requirement is to be <strong>transactional</strong>: the operation succeeds or fails as a whole. <span class="cite">Ch. 5.</span></p>
+
+<ul>
+  <li><em>Pitfall: distributed transactions.</em> If you update the database and then publish a message, a crash between the two leaves the system inconsistent. The same thing happens, less visibly, when you modify state and also return a result to a caller who never receives it. These are <em>implicit</em> distributed transactions. Chapter 9's outbox pattern addresses them.</li>
+  <li><em>Pitfall: retries.</em> A non-idempotent operation (such as "increment the counter") that gets retried after a timeout runs twice. Make the operation idempotent, for example by having the caller pass the expected value or version (optimistic concurrency).</li>
+  <li><em>Fit:</em> supporting subdomains and simple ETL-style work. <em>Risk:</em> as the logic grows, it gets duplicated across scripts.</li>
+</ul>
+
+<p><strong>Active record</strong> (also from Fowler): objects wrap the data structures and carry their own CRUD methods, which handles object–relational mapping for complex data. The logic is still organized as scripts. People sometimes call it the "anemic domain model" antipattern. The chapter's position is that it's a sound choice for <em>simple</em> logic and only becomes a problem when the logic is complex.</p>
+
+<p><strong>Be pragmatic.</strong> These patterns are tools, not moral failings. Pick them where the logic is simple, and move to a domain model when it isn't.</p>
+
+<p class="cite">See also Fowler's catalog entries: <a href="https://martinfowler.com/eaaCatalog/transactionScript.html">Transaction Script</a>, <a href="https://martinfowler.com/eaaCatalog/activeRecord.html">Active Record</a>, and <a href="https://martinfowler.com/bliki/AnemicDomainModel.html">AnemicDomainModel</a>.</p>
+
+<!-- ============================================================ -->
+<h2>3 · Practice</h2>
+
+<div class="q" data-topic="tactical" data-answer="2">
+  <p class="stem">A transaction script organizes business logic as…</p>
+  <ol class="options">
+    <li>Objects that wrap database rows and their persistence</li>
+    <li>Aggregates enforcing invariants through a public command interface</li>
+    <li>Procedures, each handling one request from the presentation</li>
+    <li>Event streams replayed to derive the current state</li>
+  </ol>
+  <div class="explain"><strong>One procedure per operation.</strong> The other options describe active record, a domain model, and an event-sourced domain model.</div>
+</div>
+
+<div class="q" data-topic="tactical" data-answer="0">
+  <p class="stem">A script updates the database and then publishes a message to a bus. The process crashes between the two steps. What has been violated?</p>
+  <ol class="options">
+    <li>The transactional behavior the script must guarantee</li>
+    <li>The idempotency guarantee of the message consumer</li>
+    <li>The aggregate boundary of the publishing entity</li>
+    <li>The ubiquitous language of the bounded context</li>
+  </ol>
+  <div class="explain">Two systems are updated, but not atomically. That's an <strong>implicit distributed transaction</strong>, which breaks the all-or-nothing guarantee. The book's fix comes in ch. 9 (outbox).</div>
+</div>
+
+<div class="q" data-topic="tactical" data-answer="3">
+  <p class="stem">A script increments a page-visit counter. The client times out, retries, and the visit is counted twice. What's the right fix?</p>
+  <ol class="options">
+    <li>Increase the client timeout so retries happen far less often</li>
+    <li>Wrap the counter inside an aggregate that raises domain events</li>
+    <li>Move the counter into the presentation layer's local memory cache</li>
+    <li>Make the operation idempotent, for example via a version check</li>
+  </ol>
+  <div class="explain">Retries are inevitable, so the operation has to be <strong>idempotent</strong>. One way is for the caller to send the value it expects (or a version), so that a repeated call is rejected or has no effect. A longer timeout only makes the bug rarer.</div>
+</div>
+
+<div class="q" data-topic="tactical" data-answer="1">
+  <p class="stem">What distinguishes active record from transaction script?</p>
+  <ol class="options">
+    <li>Business logic moves into rich aggregates with invariants</li>
+    <li>Objects encapsulate data structures and their own persistence</li>
+    <li>State is stored as an append-only event stream</li>
+    <li>Procedures run without any database transaction at all</li>
+  </ol>
+  <div class="explain">Active record adds <strong>objects that wrap data plus CRUD</strong>, which helps with complex data structures. The business logic is still organized as scripts.</div>
+</div>
+
+<div class="q" data-topic="tactical" data-answer="1">
+  <p class="stem">A supporting subdomain edits a nested product catalog (categories → products → variants → attributes). The rules are basic validation. Which pattern fits?</p>
+  <ol class="options">
+    <li>Transaction script</li>
+    <li>Active record</li>
+    <li>Domain model</li>
+    <li>Event-sourced model</li>
+  </ol>
+  <div class="explain">The logic is simple and the <strong>data structures are complex</strong>, so use <strong>active record</strong>. A domain model would be over-engineering here.</div>
+</div>
+
+<div class="q" data-topic="tactical" data-answer="0">
+  <p class="stem">A reviewer calls your active record code "the anemic domain model antipattern". What is the chapter's view?</p>
+  <ol class="options">
+    <li>Fine for simple logic; harmful only when logic is complex</li>
+    <li>Always an antipattern; every context needs a rich domain model</li>
+    <li>Never a problem, because active records cannot hold any logic</li>
+    <li>Only acceptable in generic subdomains bought from large external vendors</li>
+  </ol>
+  <div class="explain">Whether a pattern is right depends on the <strong>context</strong>. For simple logic, active record is appropriate. The "anemic" criticism applies when complex logic gets squeezed into this shape.</div>
+</div>
+
+<div class="q" data-topic="tactical" data-answer="2">
+  <p class="stem">What's the main risk of using transaction scripts as the business logic grows complex?</p>
+  <ol class="options">
+    <li>Too many aggregates locking the same database rows</li>
+    <li>Event streams growing too large to replay quickly</li>
+    <li>Duplicated business logic spread across many independent scripts</li>
+    <li>Excessive layers of abstraction hiding simple procedural behavior</li>
+  </ol>
+  <div class="explain">Scripts don't share a model, so the same rule ends up implemented in several places, and the copies <strong>drift apart</strong>. That's the point at which to switch to a domain model (ch. 6).</div>
+</div>
+
+<!-- ============================================================ -->
+<h2>4 · Interview scenario</h2>
+
+<div class="callout">
+<p><strong>Courtly</strong> is a SaaS product for padel and tennis clubs. Its core subdomain is matching players by skill level. You own three <em>supporting</em> features:</p>
+<ol>
+  <li><strong>Price import</strong>: every night, read each club's CSV price list and load it into the database.</li>
+  <li><strong>Club profile</strong>: edit club → courts → surfaces → opening hours → holiday exceptions, with simple validation only.</li>
+  <li><strong>Cancel booking</strong>: mark the booking cancelled, ask the payment provider for a refund, and email the player.</li>
+</ol>
+</div>
+
+<div class="recall" data-topic="tactical" data-title="Scenario: Courtly simple logic">
+  <p class="prompt"><strong>(6 min)</strong> Choose a pattern for (1) and (2) and justify each. For (3), list what can go wrong with transactions and retries, and say how you'd mitigate it.</p>
+  <textarea placeholder="(1) …&#10;(2) …&#10;(3) risks + mitigations …"></textarea>
+  <div class="model">
+    <p><strong>(1) Transaction script.</strong> Simple ETL with flat data. Make the import all-or-nothing per club, and make it safe to re-run (idempotent).</p>
+    <p><strong>(2) Active record.</strong> The logic is simple but the data structure is deeply nested. Objects with CRUD methods handle the mapping.</p>
+    <p><strong>(3) Risks:</strong> a crash between "mark cancelled" and "refund" leaves them inconsistent, because it's an implicit distributed transaction across the database, the payment provider, and email. A retry after a timeout can <em>refund twice</em>. <strong>Mitigations:</strong> commit the state change in a single local transaction and trigger the refund and email from it reliably (the outbox, ch. 9). Pass an idempotency key with the refund request. Make "cancel" a no-op when the booking is already cancelled.</p>
+    <ul class="rubric">
+      <li>(1) Transaction script, justified by simple logic and simple data</li>
+      <li>(2) Active record, justified by complex data structures</li>
+      <li>(3) Spotted the partial-failure or distributed-transaction risk</li>
+      <li>(3) Spotted the double-refund retry risk</li>
+      <li>(3) Proposed idempotency (key, version, or no-op on repeat)</li>
+      <li>(3) Proposed a reliable hand-off (single local transaction, then publish)</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>Your results</h2>
+<div id="scoreboard" class="scoreboard"></div>
+<p>Copy your results and paste them into the chat. Next up is <strong>ch. 6, Tackling Complex Business Logic</strong>: what to do when scripts stop scaling.</p>
+
+<div class="callout source">
+<p><strong>Primary source:</strong> <a href="https://www.oreilly.com/library/view/learning-domain-driven-design/9781098100124/">Khononov, <em>Learning Domain-Driven Design</em>, ch. 5</a>. Re-read the transaction script pitfalls, especially the examples of implicit distributed transactions. Then do the chapter exercises.</p>
+</div>
+
+<div class="callout ask">
+<p><strong>Questions?</strong> Ask me in the chat. For example: "Is returning an HTTP response really part of a distributed transaction?" or "How exactly does optimistic concurrency make a retry safe?"</p>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

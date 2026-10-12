@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Models, prompting &amp; context cheat sheet</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<nav class="crumbs"><a href="../index.html">Course map</a> · From <a href="../lessons/0002-models-prompting-context.html">Lesson 2</a></nav>
+<div class="kicker">Reference · D2</div>
+<h1>Models, prompting &amp; context</h1>
+<p class="subtitle">Smallest model + effort that passes evals; fewest high-signal tokens; stable prefix first. Current as of Oct 2026 (checked 2026-10-12). <span class="cite"><a href="https://platform.claude.com/docs/en/models/overview">Models overview</a></span></p>
+
+<h2>Model lineup</h2>
+<p class="cite"><a href="https://platform.claude.com/docs/en/models/overview">Models overview</a> · <a href="https://platform.claude.com/docs/en/about-claude/pricing">Pricing</a> · <a href="https://platform.claude.com/docs/en/about-claude/models/choosing-a-model">Choosing a model</a></p>
+<table>
+<thead><tr><th>Model</th><th>$ in / out per MTok</th><th>Latency</th><th>Default effort</th><th>Use when</th></tr></thead>
+<tbody>
+<tr><td>Fable 5.1</td><td>10 / 50</td><td>Slower</td><td>high</td><td>Hours-long agents, deep research; Opus at xhigh/max falls short</td></tr>
+<tr><td>Opus 5.5</td><td>4 / 20</td><td>Moderate</td><td>medium</td><td>Default start; complex agentic coding, enterprise work</td></tr>
+<tr><td>Sonnet 5.5</td><td>2 / 10</td><td>Fast</td><td>high</td><td>Everyday coding, analysis, agentic tool use</td></tr>
+<tr><td>Haiku 5.5</td><td>0.10 / 0.50 (≤100k prompt) · 0.50 / 2.50 (&gt;100k)</td><td>Fastest</td><td>medium</td><td>Real-time, high-volume classify/extract/route; subagents</td></tr>
+</tbody>
+</table>
+<ul>
+<li>All: 1M context, 128k max output, adaptive thinking, text + image in. Mythos 5.1 = Fable 5.1 for verified orgs only. Haiku's 100k step counts all input, cached tokens included.</li>
+<li>Start efficiency-first (Haiku → upgrade) or capability-first (Opus 5.5 → optimise down). Evals decide.</li>
+<li>Multi-model: cheap executor + advisor, or orchestrator + cheap workers.</li>
+<li>Modifiers: Batch −50% · US-only <code>inference_geo</code> 1.1× · fast mode (Opus 5.5/5/4.8, research preview, Claude API only): up to 2.5× output speed at $8 / $40 on Opus 5.5, no batch. <span class="cite"><a href="https://platform.claude.com/docs/en/about-claude/pricing">Pricing</a></span></li>
+</ul>
+
+<h2>Effort &amp; thinking</h2>
+<p class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/effort">Effort</a> · <a href="https://platform.claude.com/docs/en/build-with-claude/thinking">Thinking</a> · <a href="https://platform.claude.com/docs/en/build-with-claude/task-budgets">Task budgets</a></p>
+<table><tbody>
+<tr><th>Effort</th><td><code>output_config.effort</code>: low · medium · high · xhigh · max. Affects thinking, tool calls and text. Behavioural signal, not a budget; <code>max_tokens</code> is the hard cap. Tune effort before switching model.</td></tr>
+<tr><th>Cache impact</th><td>Changing top-level effort breaks the cache. Per-message effort (beta; Fable 5.1, Opus 5.5, Sonnet 5.5, Haiku 5.5) keeps it.</td></tr>
+<tr><th>Task budget</th><td>Beta. <code>output_config.task_budget</code>: advisory token total for a whole agent loop (min 20k). Effort = depth, budget = breadth; <code>max_tokens</code> still the hard cap.</td></tr>
+<tr><th>Adaptive thinking</th><td>Claude decides when and how much to think. Always on for Fable 5.1 and Opus 5.5 (<code>disabled</code> → 400). Haiku 5.5: can disable at ≤ high. Sonnet 5.5: lowest is <code>between_tools</code>.</td></tr>
+<tr><th>Extended thinking</th><td><code>enabled</code> + <code>budget_tokens</code>: deprecated on 4.6, 400 error on 4.7+.</td></tr>
+<tr><th>Billing</th><td>Thinking billed as output even when hidden (<code>display: "omitted"</code> default on new models). Prior turns' thinking is kept in context on current models (counts toward window, billed as input).</td></tr>
+</tbody></table>
+
+<h2>Prompting</h2>
+<p class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices">Prompting best practices</a> · <a href="https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/reduce-hallucinations">Reduce hallucinations</a> · <a href="https://platform.claude.com/docs/en/build-with-claude/structured-outputs">Structured outputs</a></p>
+<table><tbody>
+<tr><th>Clarity</th><td>"Brilliant but new employee." Explain why. One-line role in the system prompt.</td></tr>
+<tr><th>XML tags</th><td><code>&lt;instructions&gt;</code> <code>&lt;context&gt;</code> <code>&lt;input&gt;</code>; nest <code>&lt;documents&gt;&lt;document index&gt;</code>; consistent names.</td></tr>
+<tr><th>Long context</th><td>20k+ tokens: documents at top, query last (up to 30% better).</td></tr>
+<tr><th>Few-shot</th><td>3–5 relevant, diverse examples in <code>&lt;example&gt;</code> tags. Canonical, not a laundry list of edge cases.</td></tr>
+<tr><th>CoT</th><td>Use thinking + effort. "Think thoroughly" beats prescriptive steps. Manual CoT with <code>&lt;answer&gt;</code> only when thinking is off. On Fable 5.1, Opus 5.5 and Sonnet 5.5, asking for written <code>&lt;thinking&gt;</code> may be declined.</td></tr>
+<tr><th>Prefill</th><td>Unsupported from 4.6 (400). Format → structured outputs / strict tools; classify → enum tool or structured outputs; preamble → instruction.</td></tr>
+<tr><th>Forced tool use</th><td>Opus 5.5 &amp; Fable 5.1: <code>tool_choice</code> <code>any</code>/<code>tool</code> → 400. Use <code>auto</code> + <code>strict: true</code>, or structured outputs. <span class="cite"><a href="https://platform.claude.com/docs/en/models/opus-5-5/whats-new-opus-5-5">What's new in Opus 5.5</a></span></td></tr>
+<tr><th>Structured outputs</th><td>GA. <code>output_config.format</code> JSON schema or <code>strict: true</code> tools. Constrained decoding = always valid (except refusals / <code>max_tokens</code> cut-off). No recursive schemas, numeric/length constraints, or <code>additionalProperties</code> ≠ false. First-use compile latency; grammar cached 24 h from last use.</td></tr>
+<tr><th>Guardrails</th><td>Allow "I don't know" · quote first · cite or retract · only provided docs · best-of-N.</td></tr>
+<tr><th>Chaining</th><td>Still useful to inspect intermediate outputs (draft → review → refine).</td></tr>
+</tbody></table>
+
+<h2>Context management</h2>
+<p class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/context-windows">Context windows</a> · <a href="https://platform.claude.com/docs/en/build-with-claude/compaction">Compaction</a> · <a href="https://platform.claude.com/docs/en/build-with-claude/context-editing">Context editing</a> · <a href="https://platform.claude.com/docs/en/build-with-claude/token-counting">Token counting</a> · <a href="https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents">Context engineering</a></p>
+<ul>
+<li><strong>Context rot</strong>: accuracy and recall degrade as tokens grow. Aim for the smallest high-signal set; retrieve just-in-time.</li>
+<li><strong>Compaction</strong> (beta): server-side summary of older turns; on demand (recommended, <code>compact-2026-09-04</code>) or at a token threshold. Primary strategy.</li>
+<li><strong>Tool-result clearing</strong> (context editing, beta): trigger default 100k input tokens, keep 3, <code>clear_at_least</code> (clearing breaks the cache), <code>exclude_tools</code>. <strong>Thinking-block clearing</strong> for old thinking (current models keep all by default).</li>
+<li><strong>Memory tool</strong> (<code>memory_20250818</code>, all Claude 4+ models): client-side <code>/memories</code> files you store; persists across sessions. Pair with clearing/compaction. Validate paths (traversal). <span class="cite"><a href="https://platform.claude.com/docs/en/agents-and-tools/tool-use/memory-tool">Memory tool</a></span></li>
+<li>Many tools? Defer definitions with the <strong>tool search tool</strong> instead of loading every schema. <span class="cite"><a href="https://platform.claude.com/docs/en/agents-and-tools/tool-use/tool-search-tool">Tool search tool</a></span></li>
+<li><strong>Token counting</strong>: free, separate RPM limit, estimate only, no caching. Opus 4.7+ tokenizer ≈ +30% tokens: recount.</li>
+<li>Cached tokens still fill the window. Prompt too long → 400; output hits the limit → <code>model_context_window_exceeded</code>.</li>
+</ul>
+
+<h2>Prompt caching</h2>
+<p class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/prompt-caching">Prompt caching</a></p>
+<table><tbody>
+<tr><th>Order</th><td>tools → system → messages. Stable first, volatile last.</td></tr>
+<tr><th>Breakpoints</th><td>≤ 4 explicit; automatic (top-level <code>cache_control</code>) takes one slot; 20-position lookback.</td></tr>
+<tr><th>TTL</th><td>5 min (refreshed on hit) · 1 h (<code>"ttl": "1h"</code>).</td></tr>
+<tr><th>Price</th><td>Write 1.25× / 2× · read 0.1× (0.05× Opus 5.5 &amp; Sonnet 5.5; 0.025× Fable 5.1). Break-even: 1 read (5 min), 2 reads (1 h).</td></tr>
+<tr><th>Min length</th><td>512 tokens (5.5 models, Fable 5.1); 1,024–4,096 older. Shorter = silently uncached.</td></tr>
+<tr><th>Breaks it</th><td>Tool change → all · web search/citations/speed toggle → system + messages · images, <code>tool_choice</code>, thinking/effort → messages.</td></tr>
+<tr><th>Keep it</th><td>Change instructions with a mid-conversation <code>{"role": "system"}</code> message, not by editing <code>system</code>. Keep history append-only. <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/mid-conversation-system-messages">Mid-conversation system messages</a></span></td></tr>
+<tr><th>Debug</th><td>Cache diagnostics (GA, Claude API): <code>diagnostics.previous_message_id</code> → first divergence (<code>system_changed</code>, <code>tools_changed</code>, <code>messages_changed</code>, <code>model_changed</code>). <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/cache-diagnostics">Cache diagnostics</a></span></td></tr>
+<tr><th>Pre-warm</th><td><code>max_tokens: 0</code> writes the cache with no output (not in batches or streams).</td></tr>
+</tbody></table>
+
+<h2>Batch</h2>
+<p class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/batch-processing">Batch processing</a></p>
+<ul><li>50% off · most &lt; 1 h, expires 24 h · 100k requests / 256 MB · results 29 days · stacks with caching (use the 1 h TTL) · up to 300k output tokens on current models with the <code>output-300k-2026-03-24</code> beta. <span class="cite"><a href="https://platform.claude.com/docs/en/models/overview">Models overview</a></span></li></ul>
+
+<h2>Agent Skills</h2>
+<p class="cite"><a href="https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview">Agent Skills overview</a> · <a href="https://www.anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills">Engineering post</a></p>
+<table>
+<thead><tr><th>Level</th><th>Loaded</th><th>Cost</th></tr></thead>
+<tbody>
+<tr><td>1 Metadata (<code>name</code> ≤ 64, <code>description</code> ≤ 1024: what + when)</td><td>Always</td><td>~100 tokens / Skill</td></tr>
+<tr><td>2 SKILL.md body</td><td>When triggered</td><td>&lt; 5k tokens</td></tr>
+<tr><td>3 Files &amp; scripts</td><td>When read / run</td><td>0 until used; scripts return output only</td></tr>
+</tbody></table>
+<ul>
+<li>API: needs the code-execution tool; no network; workspace-wide. Claude Code: <code>~/.claude/skills/</code> or <code>.claude/skills/</code>. claude.ai: per user. No cross-surface sync.</li>
+<li>Pre-built: pptx, xlsx, docx, pdf. Audit untrusted Skills like software.</li>
+</ul>
+</body>
+</html>

@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch. 6: Tackling complex business logic</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-lesson="0006-tackling-complex-business-logic">
+
+<nav class="crumbs"><a href="../index.html">Course map</a> · <a href="../reference/glossary.html">Glossary</a> · <a href="../reference/heuristics.html">Heuristics</a> · Prev: <a href="0005-implementing-simple-business-logic.html">Ch. 5</a> · Next: <a href="0007-modeling-the-dimension-of-time.html">Ch. 7</a></nav>
+
+<div class="kicker">Chapter 6</div>
+<h1>Tackling complex business logic</h1>
+<p class="subtitle">The domain model's building blocks: value objects, entities, aggregates, domain events, and domain services. The questions interviewers drill hardest.</p>
+
+<div class="meta">
+  <span>≈ 15 minutes</span>
+  <span>2 review + 8 questions + 1 scenario</span>
+  <span><span class="tag tactical">Part II</span></span>
+</div>
+
+<!-- ============================================================ -->
+<h2>0 · Spaced review: ch. 4–5</h2>
+
+<div class="q" data-topic="tactical" data-answer="3">
+  <p class="stem">The business logic is simple and the data is flat. Which pattern does chapter 5 point to?</p>
+  <ol class="options">
+    <li>Active record</li>
+    <li>Domain model</li>
+    <li>Event-sourced model</li>
+    <li>Transaction script</li>
+  </ol>
+  <div class="explain">Simple logic and simple data: a <strong>transaction script</strong> is enough. Reach for active record only when the data structures are complex. <span class="cite">Ch. 5.</span></div>
+</div>
+
+<div class="q" data-topic="strategic" data-answer="1">
+  <p class="stem">Two contexts deliberately share a small, co-owned part of their model, and changes to it need both teams to agree. Which pattern is this?</p>
+  <ol class="options">
+    <li>Partnership pattern</li>
+    <li>Shared kernel</li>
+    <li>Open-host service</li>
+    <li>Conformist relationship</li>
+  </ol>
+  <div class="explain">A <strong>shared kernel</strong> is an overlapping, co-owned part of the model. It's worth it when duplicating that part would cost more than coordinating changes to it. <span class="cite">Ch. 4.</span></div>
+</div>
+
+<!-- ============================================================ -->
+<h2>1 · Recall first</h2>
+
+<div class="recall" data-topic="warmup" data-title="Domain model recall">
+  <p class="prompt">Without looking: (a) What separates a value object from an entity? (b) Give at least three rules of aggregate design. (c) What is a domain service, and when do you need one?</p>
+  <textarea placeholder="(a) …&#10;(b) …&#10;(c) …"></textarea>
+  <div class="model">
+    <p>(a) A <strong>value object</strong> is identified by its values: it has no ID, it's immutable, and two equal instances are interchangeable. An <strong>entity</strong> has an explicit identity that stays the same while its state changes. Entities live inside aggregates.<br>
+    (b) An aggregate is a <strong>consistency boundary</strong>: only its own logic may change its state, through its public commands. It is a <strong>transactional boundary</strong>: commit one aggregate per transaction. It references other aggregates <strong>by ID only</strong>. It includes only the data that must be <strong>strongly consistent</strong>. It checks concurrency (for example, with a version field). Only the <strong>root</strong> is exposed. It publishes <strong>domain events</strong>.<br>
+    (c) A <strong>domain service</strong> is a stateless object for business logic that doesn't belong to any single aggregate or value object, typically logic that reads several aggregates.</p>
+    <ul class="rubric">
+      <li>Value object vs entity: identity, immutability, equality</li>
+      <li>At least three correct aggregate rules</li>
+      <li>One aggregate per transaction and references by ID among them</li>
+      <li>Domain service: stateless, logic with no natural home</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>2 · The ideas that matter</h2>
+
+<p><strong>Domain model</strong> (another Fowler pattern): an object model of the domain that holds both behavior and data, written in the ubiquitous language, with no infrastructure concerns. It's for <em>complex</em> logic: complicated state transitions, business rules, and invariants. <span class="cite">Ch. 6.</span></p>
+
+<ul>
+  <li><strong>Value object</strong>: identified by the combination of its values, and immutable. Use it to avoid "primitive obsession": an <code>Email</code> or <code>Money</code> type keeps validation and behavior in one place, and the code reads like the business. Use value objects wherever you can.</li>
+  <li><strong>Entity</strong>: needs an explicit ID because its state changes over time. It isn't implemented on its own, only inside an aggregate.</li>
+  <li><strong>Aggregate</strong>: an entity that enforces consistency for a cluster of objects. Its state changes <em>only</em> through its public interface (commands). It's committed in one transaction, and you change <em>one aggregate per transaction</em>. It references other aggregates by ID. It contains only what must be <em>strongly consistent</em>, and everything else is eventually consistent. It uses optimistic concurrency (a version field). The <em>aggregate root</em> is the only entry point.</li>
+  <li><strong>Domain event</strong>: a past-tense message describing something significant that happened, part of the aggregate's public interface (<code>TicketEscalated</code>).</li>
+  <li><strong>Domain service</strong>: a stateless home for logic that belongs to no single aggregate or value object, for example a calculation that reads several aggregates.</li>
+</ul>
+
+<p><strong>Why it works:</strong> these patterns encapsulate the <em>invariants</em>. Each object protects its own rules, so the number of states the system can reach shrinks, and with it the complexity.</p>
+
+<p class="cite">See also <a href="https://martinfowler.com/bliki/DDD_Aggregate.html">Fowler, "DDD_Aggregate"</a>, <a href="https://martinfowler.com/bliki/ValueObject.html">"ValueObject"</a>, and Evans's <a href="https://www.domainlanguage.com/ddd/reference/">DDD Reference</a>.</p>
+
+<!-- ============================================================ -->
+<h2>3 · Practice</h2>
+
+<div class="q" data-topic="tactical" data-answer="2">
+  <p class="stem">A customer's <code>Address</code> (street, city, postcode) has no meaning apart from its values, and two equal addresses are interchangeable. When the customer moves, the address is replaced, not edited. Model it as a…</p>
+  <ol class="options">
+    <li>Entity class</li>
+    <li>Domain service</li>
+    <li>Value object</li>
+    <li>Aggregate root</li>
+  </ol>
+  <div class="explain">Identity comes from its values, it's immutable, and you replace it rather than edit it: a <strong>value object</strong>. The <em>customer</em> is the entity.</div>
+</div>
+
+<div class="q" data-topic="tactical" data-answer="0">
+  <p class="stem">Why replace raw strings for emails and phone numbers with value objects?</p>
+  <ol class="options">
+    <li>Validation and behavior live in one place, not scattered</li>
+    <li>Strings cannot be persisted reliably in most relational databases</li>
+    <li>Value objects carry IDs, making equality checks much faster</li>
+    <li>Aggregates are strictly forbidden from containing any primitive fields</li>
+  </ol>
+  <div class="explain">This cures <strong>primitive obsession</strong>: the rules travel with the type, and the code speaks the ubiquitous language. Value objects have <em>no</em> IDs.</div>
+</div>
+
+<div class="q" data-topic="tactical" data-answer="1">
+  <p class="stem">Who may change an aggregate's state?</p>
+  <ol class="options">
+    <li>Any application service that has loaded its inner entities</li>
+    <li>Only the aggregate's own logic via its public commands</li>
+    <li>Repositories directly updating its columns for better query performance</li>
+    <li>Other aggregates holding a direct reference to its entities</li>
+  </ol>
+  <div class="explain">An aggregate is a <strong>consistency boundary</strong>. If anything outside it could change its state, it couldn't guarantee its invariants. External code calls its commands, and the aggregate decides.</div>
+</div>
+
+<div class="q" data-topic="tactical" data-answer="3">
+  <p class="stem">A use case wants to change two aggregate instances atomically. What does the chapter's guidance imply?</p>
+  <ol class="options">
+    <li>Wrap both in one database transaction for safety</li>
+    <li>Merge them into one aggregate regardless of consistency</li>
+    <li>Use a domain service to update both atomically</li>
+    <li>Modify one per transaction; reach the other eventually</li>
+  </ol>
+  <div class="explain"><strong>One aggregate per transaction.</strong> Changes to other aggregates follow through eventual consistency, for example in reaction to domain events. If two pieces of data really must be strongly consistent, that's a reason to redraw the aggregate boundary, not to stretch the transaction.</div>
+</div>
+
+<div class="q" data-topic="tactical" data-answer="0">
+  <p class="stem">When you're deciding whether some data belongs <em>inside</em> an aggregate, what's the guiding question?</p>
+  <ol class="options">
+    <li>Must it be strongly consistent with the aggregate's other data?</li>
+    <li>Is it stored in the same database table right now?</li>
+    <li>Is it frequently displayed together on the same user screen?</li>
+    <li>Does the same team own both pieces of this data?</li>
+  </ol>
+  <div class="explain">Include only what the aggregate's invariants need to be <strong>strongly consistent</strong>. Keep aggregates as small as that allows. Anything else is referenced by ID and kept eventually consistent.</div>
+</div>
+
+<div class="q" data-topic="tactical" data-answer="2">
+  <p class="stem">Two users change the same aggregate at the same time. How does the chapter suggest preventing lost updates?</p>
+  <ol class="options">
+    <li>A global lock held for the whole session</li>
+    <li>Last write wins, because conflicts are rare anyway</li>
+    <li>A version field checked when committing (optimistic concurrency)</li>
+    <li>Route each writer to its own database replica</li>
+  </ol>
+  <div class="explain">The aggregate carries a <strong>version</strong> that's checked when committing. If someone else committed first, the second commit fails and can be retried using fresh state.</div>
+</div>
+
+<div class="q" data-topic="tactical" data-answer="1">
+  <p class="stem">Calculating a shipping quote needs the cart contents, the customer's loyalty tier, and the carrier rates. These live in three different aggregates, and the calculation belongs to none of them. Put it in a…</p>
+  <ol class="options">
+    <li>Value object</li>
+    <li>Domain service</li>
+    <li>Aggregate root</li>
+    <li>Active record</li>
+  </ol>
+  <div class="explain">A <strong>domain service</strong> is a stateless home for logic that spans aggregates or has no natural owner. It reads several aggregates. It isn't a way to <em>change</em> several of them in one transaction.</div>
+</div>
+
+<div class="q" data-topic="tactical" data-answer="3">
+  <p class="stem">Which is a well-named domain event?</p>
+  <ol class="options">
+    <li>EscalateTicket</li>
+    <li>TicketService</li>
+    <li>TicketUpdateDTO</li>
+    <li>TicketEscalated</li>
+  </ol>
+  <div class="explain">A domain event describes something that has <strong>already happened</strong>, so it's named in the past tense in the ubiquitous language. <code>EscalateTicket</code> is a command. The other two are technical artifacts.</div>
+</div>
+
+<!-- ============================================================ -->
+<h2>4 · Interview scenario</h2>
+
+<div class="callout">
+<p><strong>Lendly</strong> runs peer-to-peer equipment rental, such as cameras and drills. Its core subdomain is how it manages risk. The rules:</p>
+<ul>
+  <li>An item can't be rented for two <strong>overlapping periods</strong>.</li>
+  <li>The <strong>deposit</strong> is calculated from the renter's trust score and the item's value.</li>
+  <li>An owner can file a <strong>damage claim</strong> up to 48 hours after the return. The claim can't exceed the deposit.</li>
+  <li>When an item is returned, the deposit is released or held, and both parties are notified.</li>
+</ul>
+</div>
+
+<div class="recall" data-topic="tactical" data-title="Scenario: Lendly domain model">
+  <p class="prompt"><strong>(8 min)</strong> Design the domain model. Name the value objects, entities, aggregates and their boundaries (what goes inside, and what is referenced by ID), domain events, and any domain service. Say which invariant each aggregate protects.</p>
+  <textarea placeholder="Value objects …&#10;Aggregates (invariants) …&#10;Events …&#10;Domain service …"></textarea>
+  <div class="model">
+    <table>
+      <thead><tr><th>Element</th><th>Proposal</th></tr></thead>
+      <tbody>
+        <tr><td>Value objects</td><td><code>Money</code>, <code>DateRange</code>, <code>TrustScore</code>, <code>Deposit</code></td></tr>
+        <tr><td>Aggregate: <code>Item</code></td><td>Holds its booked <code>DateRange</code>s. Invariant: <em>no overlapping bookings</em>. This must be strongly consistent per item, so it lives with the item.</td></tr>
+        <tr><td>Aggregate: <code>Rental</code></td><td>References <code>ItemId</code> and <code>RenterId</code> by ID. Contains the <code>DamageClaim</code> entity. Invariants: claim filed ≤ 48 h after return, and claim ≤ deposit. Both need the rental's own return time and deposit, so they belong inside it.</td></tr>
+        <tr><td>Domain service</td><td><code>DepositCalculator</code>: reads the renter's trust score and the item's value (two aggregates) and returns a <code>Deposit</code>.</td></tr>
+        <tr><td>Domain events</td><td><code>RentalBooked</code>, <code>ItemReturned</code>, <code>DamageClaimFiled</code>, <code>DepositReleased</code>. Notifications react to these, eventually consistent.</td></tr>
+      </tbody>
+    </table>
+    <p class="small">Booking touches both <code>Item</code> (reserve the period) and <code>Rental</code> (create it). That's two aggregates, so commit one per transaction and complete the other in reaction to an event. Alternatively, argue for a single aggregate if the business can't tolerate the brief gap. Interviewers want to hear you <em>name</em> this trade-off.</p>
+    <ul class="rubric">
+      <li>Used value objects for money, period, and score instead of primitives</li>
+      <li>Put the no-overlap invariant on a per-item aggregate</li>
+      <li>Kept the damage claim inside Rental, justified by its invariants</li>
+      <li>Referenced other aggregates by ID only</li>
+      <li>Used a domain service for the cross-aggregate deposit calculation</li>
+      <li>Domain events named in the past tense; notifications driven by events</li>
+      <li>Named the one-aggregate-per-transaction trade-off when booking</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>Your results</h2>
+<div id="scoreboard" class="scoreboard"></div>
+<p>Copy your results and paste them into the chat. Next up is <strong>ch. 7, Modeling the Dimension of Time</strong>: what changes when aggregates store events instead of state.</p>
+
+<div class="callout source">
+<p><strong>Primary source:</strong> <a href="https://www.oreilly.com/library/view/learning-domain-driven-design/9781098100124/">Khononov, <em>Learning Domain-Driven Design</em>, ch. 6</a>. Re-read the aggregate section closely (consistency enforcement, transaction boundary, hierarchy of entities, references to other aggregates). It's the densest part of Part II and the most interviewed.</p>
+</div>
+
+<div class="callout ask">
+<p><strong>Questions?</strong> Ask me in the chat. For example: "How do I decide between one big aggregate and two small ones?" or "Isn't a domain service just a transaction script with a fancier name?"</p>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

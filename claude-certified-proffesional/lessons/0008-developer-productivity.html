@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>D7: Developer productivity with Claude Code</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-lesson="0008-developer-productivity">
+
+<nav class="crumbs"><a href="../index.html">Course map</a> · <a href="../reference/blueprint.html">Exam blueprint</a> · <a href="../reference/claude-code-teams.html">Claude Code teams cheat sheet</a> · Prev: <a href="0007-stakeholders-lifecycle.html">D6</a> · Next: <a href="../index.html">Course map</a></nav>
+
+<div class="kicker">Lesson 8 · Domain 7 · 7% of the exam</div>
+<h1>D7: Developer productivity with Claude Code</h1>
+<p class="subtitle">You already use Claude Code daily. The exam asks the <em>team</em> version: which file wins, what actually enforces a rule, and how to run it safely in CI and on a cloud provider.</p>
+
+<div class="meta">
+  <span>≈ 18 minutes</span>
+  <span>3 review + 1 recall + 12 questions + 1 scenario</span>
+  <span><span class="tag d7">D7</span></span>
+</div>
+
+<div class="callout source">
+<p><strong>How the real exam asks.</strong> Scenario items; multiple-response items say how many to pick. D7 is the smallest domain, but its distractors are precise config details (wrong file, wrong scope, wrong exit code). Docs move fast: everything below was checked against code.claude.com on 2026-10-12.</p>
+</div>
+
+<!-- ============================================================ -->
+<h2>0 · Spaced review</h2>
+
+<div class="q" data-topic="d1" data-answer="0">
+  <p class="stem">A logistics firm asks for an "AI agent" that every night pulls the same three reports, reconciles totals, and emails a summary. The steps never change. What do you propose?</p>
+  <ol class="options">
+    <li>A fixed prompt chain with programmatic checks between steps</li>
+    <li>An autonomous agent that plans its own steps nightly</li>
+    <li>A multi-agent system with one subagent for each report</li>
+    <li>An orchestrator that delegates the reports to parallel workers</li>
+  </ol>
+  <div class="explain">Known, fixed steps = <strong>workflow</strong> (prompt chaining), not an agent; agents are for open-ended problems where steps can't be predicted. The autonomous and orchestrator options add cost and error compounding for no gain; multi-agent is for broad parallel exploration. <span class="cite"><a href="https://www.anthropic.com/engineering/building-effective-agents">Anthropic, Building effective agents</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d2" data-answer="0">
+  <p class="stem">An assistant's system prompt starts with the current timestamp, followed by 6k tokens of fixed instructions and tool definitions. Cache reads are almost zero. Best fix?</p>
+  <ol class="options">
+    <li>Move the timestamp after the static instructions and tools</li>
+    <li>Switch every single request to the one-hour cache TTL</li>
+    <li>Add a fifth cache breakpoint just around the timestamp</li>
+    <li>Upgrade to a larger model with a longer context</li>
+  </ol>
+  <div class="explain">Caching matches an exact <strong>prefix</strong> (tools → system → messages); any change early in the prefix is a miss for everything after it. Put static content first, dynamic last. A longer TTL doesn't help when the prefix changes every call; the limit is 4 breakpoints; model size is irrelevant. <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/prompt-caching">Prompt caching docs</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d5" data-answer="0">
+  <p class="stem">A read-only reporting agent was given a <code>delete_record</code> tool "just in case". Security flags it. What is the least-privilege answer?</p>
+  <ol class="options">
+    <li>Remove the tool from the agent's tool list entirely</li>
+    <li>Keep the tool but log every call for audit</li>
+    <li>Keep the tool but require human confirmation each time</li>
+    <li>Keep the tool and warn against it in prompts</li>
+  </ol>
+  <div class="explain">Official sample heuristic: <strong>remove, don't monitor</strong>. A tool the task never needs should not exist in the agent's context; logging, confirmation and prompt warnings all leave the capability in place. Claude Code mirrors this: a bare tool deny removes the tool from context. <span class="cite"><a href="../reference/blueprint.html">Blueprint heuristics</a>; <a href="https://code.claude.com/docs/en/permissions">Claude Code permissions</a>.</span></div>
+</div>
+
+<!-- ============================================================ -->
+<h2>1 · Recall first</h2>
+
+<div class="recall" data-topic="d7" data-title="Claude Code team config recall">
+  <p class="prompt">Without looking: (1) list the Claude Code settings levels from highest to lowest precedence; (2) say which mechanism you'd use for each: a rule that must <em>never</em> be broken, a reusable team workflow invoked by name, a noisy codebase investigation, and a shared MCP server.</p>
+  <textarea placeholder="Your answer…"></textarea>
+  <div class="model">
+    <p>(1) Managed (server-managed / MDM / managed-settings.json) &gt; command-line flags &gt; local project <code>.claude/settings.local.json</code> &gt; shared project <code>.claude/settings.json</code> &gt; user <code>~/.claude/settings.json</code>. Array keys like <code>permissions.allow</code> merge; a deny anywhere beats an allow anywhere. (2) Must-never → <strong>PreToolUse hook</strong> (exit 2) and/or managed deny rule, not CLAUDE.md. Reusable workflow → <strong>skill</strong> (<code>.claude/skills/x/SKILL.md</code>, invoked as <code>/x</code>). Noisy investigation → <strong>subagent</strong> (own context window, returns a summary). Shared MCP → <strong>project scope</strong> <code>.mcp.json</code> at the repo root. <span class="cite"><a href="https://code.claude.com/docs/en/settings">Settings</a>; <a href="https://code.claude.com/docs/en/best-practices">Best practices</a>.</span></p>
+    <ul class="rubric">
+      <li>Managed on top, user at the bottom, local above shared project</li>
+      <li>Knows arrays merge and deny wins across scopes</li>
+      <li>Hook (deterministic) for must-never, not CLAUDE.md (advisory)</li>
+      <li>Skill for workflows, subagent for context isolation</li>
+      <li><code>.mcp.json</code> at repo root for team MCP</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>2 · The ideas that matter</h2>
+
+<h3>2.1 Settings: which file wins</h3>
+<table>
+<thead><tr><th>Level (highest first)</th><th>Where</th><th>Use for</th></tr></thead>
+<tbody>
+<tr><td>Managed</td><td>Server-managed (claude.ai admin console), MDM (macOS <code>com.anthropic.claudecode</code>, Windows <code>HKLM\SOFTWARE\Policies\ClaudeCode</code>), or <code>managed-settings.json</code> (+ <code>managed-settings.d/*.json</code>) in <code>/Library/Application Support/ClaudeCode/</code>, <code>/etc/claude-code/</code>, <code>C:\Program Files\ClaudeCode\</code></td><td>Org policy users can't override</td></tr>
+<tr><td>Command line</td><td><code>--settings</code>, <code>--model</code>, etc.</td><td>One session</td></tr>
+<tr><td>Local project</td><td><code>.claude/settings.local.json</code> (git-excluded when Claude Code creates it; "don't ask again" writes here)</td><td>Personal, per repo</td></tr>
+<tr><td>Shared project</td><td><code>.claude/settings.json</code> (committed)</td><td>Team defaults</td></tr>
+<tr><td>User</td><td><code>~/.claude/settings.json</code></td><td>Personal, all repos</td></tr>
+</tbody>
+</table>
+<p>Gotchas: array settings merge across levels; <code>~/.claude.json</code> holds app state and user/local MCP, <em>not</em> permissions or hooks; <code>defaultMode</code> <code>auto</code>/<code>bypassPermissions</code> is ignored from project files; a repo file can't turn telemetry on; <code>/status</code> shows which sources loaded. Within managed, the default is first-source-wins (remote &gt; MDM/HKLM &gt; file &gt; HKCU); <code>managedSourcesBehavior: "merge"</code> combines them. Managed-only locks include <code>allowManagedPermissionRulesOnly</code>, <code>allowManagedHooksOnly</code>, <code>allowManagedMcpServersOnly</code>, <code>strictKnownMarketplaces</code>, <code>disableSideloadFlags</code> (rejects <code>--plugin-dir</code>, <code>--plugin-url</code>, <code>--agents</code>, <code>--mcp-config</code>). <a href="https://code.claude.com/docs/en/plugins/org">Plugins for orgs</a>. <span class="cite"><a href="https://code.claude.com/docs/en/settings">Settings</a>; <a href="https://code.claude.com/docs/en/managed-settings">Managed settings</a>.</span></p>
+
+<h3>2.2 Permissions and modes</h3>
+<p>Rules are evaluated <strong>deny → ask → allow</strong>; first match wins and specificity doesn't matter, so an allow can never punch a hole in a deny, and a deny in any scope beats an allow in any scope. Syntax: <code>Bash(npm run *)</code>, <code>Read(./secrets/**)</code>, <code>WebFetch(domain:github.com)</code>, <code>mcp__github__*</code>, <code>Agent(Explore)</code>. Bash patterns are string matches: they miss <code>git -C . push</code>, binaries called by path, and <code>sh -c</code>, so pair them with the sandbox or a PreToolUse hook (a hook's exit 2 stops the call before rules are evaluated, so it holds even against an allow rule). <code>.claudeignore</code> does nothing; use <code>Read</code> deny rules. Project allow rules apply only after the workspace-trust dialog, and <code>-p</code> never shows one. <span class="cite"><a href="https://code.claude.com/docs/en/permissions">Permissions</a>.</span></p>
+<table>
+<thead><tr><th>Mode</th><th>Behaviour</th></tr></thead>
+<tbody>
+<tr><td><code>default</code> (labelled <strong>Manual</strong>; alias <code>manual</code>)</td><td>Prompts on first use of each tool</td></tr>
+<tr><td><code>acceptEdits</code></td><td>Auto-accepts file edits and <code>mkdir</code>/<code>touch</code>/<code>mv</code>/<code>cp</code> in the working directory</td></tr>
+<tr><td><code>plan</code></td><td>Read-only analysis, no edits</td></tr>
+<tr><td><code>auto</code></td><td>Classifier approves or blocks; the built-in starting mode for interactive terminal and VS Code sessions from v2.1.283. <code>-p</code>/SDK can also start in auto, so scripts should pass <code>--permission-mode</code>. Any <code>disableAutoMode</code> falls back to Manual</td></tr>
+<tr><td><code>dontAsk</code></td><td>Auto-denies anything not pre-allowed (CI-friendly)</td></tr>
+<tr><td><code>bypassPermissions</code></td><td>Skips prompts; isolated containers/VMs only. Block with <code>disableBypassPermissionsMode: "disable"</code></td></tr>
+</tbody>
+</table>
+<p class="cite"><a href="https://code.claude.com/docs/en/permissions">Permissions</a>; <a href="https://code.claude.com/docs/en/permission-modes">Permission modes</a>; <a href="https://code.claude.com/docs/en/headless">Headless</a>.</p>
+
+<h3>2.3 CLAUDE.md: context, not enforcement</h3>
+<table>
+<thead><tr><th>Scope</th><th>Location</th></tr></thead>
+<tbody>
+<tr><td>Managed policy (can't be excluded)</td><td><code>/Library/Application Support/ClaudeCode/CLAUDE.md</code>, <code>/etc/claude-code/CLAUDE.md</code>, <code>C:\Program Files\ClaudeCode\CLAUDE.md</code></td></tr>
+<tr><td>User</td><td><code>~/.claude/CLAUDE.md</code></td></tr>
+<tr><td>Project (committed)</td><td><code>./CLAUDE.md</code> or <code>./.claude/CLAUDE.md</code></td></tr>
+<tr><td>Local (gitignore it)</td><td><code>./CLAUDE.local.md</code></td></tr>
+<tr><td>Rules</td><td><code>.claude/rules/*.md</code>; <code>paths:</code> frontmatter makes a rule load only for matching files</td></tr>
+</tbody>
+</table>
+<p>Files are <strong>concatenated</strong>, not overridden; subdirectory CLAUDE.md files load on demand. A repo with only <code>AGENTS.md</code> is read natively (v2.1.277). <code>@path</code> imports (max 4 hops) organise but don't save context. Target under 200 lines; <code>claudeMdExcludes</code> for monorepos; <code>/init</code> to bootstrap. The test for each line: "Would removing this cause Claude to make mistakes?" Rules that must always hold belong in hooks. <span class="cite"><a href="https://code.claude.com/docs/en/memory">Memory</a>; <a href="https://code.claude.com/docs/en/best-practices">Best practices</a>.</span></p>
+
+<h3>2.4 Pick the right extension</h3>
+<table>
+<thead><tr><th>Need</th><th>Mechanism</th><th>Key detail</th></tr></thead>
+<tbody>
+<tr><td>Always-on project knowledge</td><td>CLAUDE.md / rules</td><td>Advisory; costs context every session</td></tr>
+<tr><td>Reusable workflow or know-how</td><td>Skill (<code>SKILL.md</code>)</td><td>Description always loaded, body on use; <code>disable-model-invocation: true</code> for side-effect workflows like deploy; old <code>.claude/commands/x.md</code> still makes <code>/x</code></td></tr>
+<tr><td>Isolated investigation or specialist</td><td>Subagent (<code>.claude/agents/*.md</code>)</td><td>Own context, tools, model, <code>permissionMode</code>, <code>isolation: worktree</code>; delegation driven by <code>description</code></td></tr>
+<tr><td>Must-happen / must-never</td><td>Hook</td><td>PreToolUse exit 2 blocks (stderr goes to Claude), even over allow rules; exit 1 does <em>not</em> (unless <code>"onFailure": "block"</code>); PostToolUse runs after the tool, so it can't prevent it; hooks run outside the sandbox</td></tr>
+<tr><td>External system access</td><td>MCP server</td><td>Scopes: local (default), project (<code>.mcp.json</code>), user</td></tr>
+<tr><td>Distribute all of the above</td><td>Plugin + marketplace</td><td><code>.claude-plugin/plugin.json</code>; teams use <code>extraKnownMarketplaces</code> + <code>enabledPlugins</code></td></tr>
+</tbody>
+</table>
+<p class="cite"><a href="https://code.claude.com/docs/en/skills">Skills</a>; <a href="https://code.claude.com/docs/en/sub-agents">Subagents</a>; <a href="https://code.claude.com/docs/en/hooks">Hooks</a>; <a href="https://code.claude.com/docs/en/plugins">Plugins</a>; <a href="https://code.claude.com/docs/en/plugins/org">Plugins for orgs</a>.</p>
+
+<h3>2.5 MCP for teams</h3>
+<p>Shared servers go in <code>.mcp.json</code> at the repo root under <code>mcpServers</code> (<code>claude mcp add --transport http --scope project …</code>); use <code>${VAR}</code> for secrets. Same name: local &gt; project &gt; user &gt; plugin &gt; claude.ai connectors, whole entry wins. Project servers need per-user approval interactively (reset: <code>claude mcp reset-project-choices</code>) but load without asking in <code>-p</code>. HTTP is the recommended transport; SSE is deprecated. <span class="cite"><a href="https://code.claude.com/docs/en/mcp">MCP</a>.</span></p>
+<table>
+<thead><tr><th>Admin control</th><th>Effect</th></tr></thead>
+<tbody>
+<tr><td><code>managed-mcp.json</code> (system path; not via server-managed)</td><td>Exclusive control: users can't add any other server; <code>{"mcpServers":{}}</code> disables MCP</td></tr>
+<tr><td><code>managedMcpServers</code> (managed settings)</td><td>Provides remote servers; users keep their own</td></tr>
+<tr><td><code>allowedMcpServers</code> + <code>allowManagedMcpServersOnly: true</code></td><td>Hard allowlist; match on <code>serverUrl</code>/<code>serverCommand</code> (<code>serverName</code> is not a security control)</td></tr>
+<tr><td><code>deniedMcpServers</code></td><td>Always wins; merges from every scope</td></tr>
+</tbody>
+</table>
+<p class="cite"><a href="https://code.claude.com/docs/en/managed-mcp">Managed MCP</a>.</p>
+
+<h3>2.6 Sandbox: the OS-level backstop</h3>
+<p>Off by default (<code>/sandbox</code> or <code>sandbox.enabled</code>). Applies to shell commands (Bash, PowerShell, Monitor): macOS Seatbelt, Linux/WSL2 bubblewrap; native Windows runs unsandboxed. Writes limited to cwd and temp; network via a proxy with an empty <code>allowedDomains</code> list. Not sandboxed: Read/Edit/Write/WebFetch tools, hooks, local MCP servers. Enforce with managed <code>{"sandbox":{"enabled":true,"failIfUnavailable":true,"allowUnsandboxedCommands":false}}</code>. The proxy doesn't inspect TLS by default, so broad domains like github.com are an exfiltration path. Permissions + sandbox = defense in depth. <span class="cite"><a href="https://code.claude.com/docs/en/sandboxing">Sandboxing</a>.</span></p>
+
+<h3>2.7 CI, headless, providers, telemetry</h3>
+<table>
+<thead><tr><th>Topic</th><th>What to remember</th></tr></thead>
+<tbody>
+<tr><td>Headless <code>claude -p</code></td><td><code>--output-format json|stream-json</code>, <code>--json-schema</code>, <code>--allowedTools</code>, <code>--permission-mode dontAsk</code>, <code>--max-budget-usd</code>. <code>--bare</code> skips hooks, skills, plugins, MCP and CLAUDE.md: recommended for CI, because without it <code>-p</code> runs project hooks and <code>.mcp.json</code> servers even in untrusted checkouts. Bare mode needs <code>ANTHROPIC_API_KEY</code> or <code>apiKeyHelper</code> (no OAuth) and is slated to become the <code>-p</code> default. <span class="cite"><a href="https://code.claude.com/docs/en/headless">Headless</a></span></td></tr>
+<tr><td>GitHub Actions</td><td><code>anthropics/claude-code-action@v1</code> (set up with <code>/install-github-app</code>); no <code>prompt</code> = @claude interactive mode, <code>prompt</code> = automation. Auth: org secret <code>ANTHROPIC_API_KEY</code>, keyless workload identity federation, or <code>use_bedrock</code>/<code>use_vertex</code>/<code>use_foundry</code> via OIDC (<code>id-token: write</code>). CLI flags go in <code>claude_args</code> (e.g. <code>--max-turns</code>, <code>--allowedTools</code>); add job timeouts and concurrency. Triggering user needs write access. Code Review reviews PRs without a workflow file. <span class="cite"><a href="https://code.claude.com/docs/en/github-actions">GitHub Actions</a></span></td></tr>
+<tr><td>Bedrock</td><td><code>CLAUDE_CODE_USE_BEDROCK=1</code> (or the <code>/setup-bedrock</code> wizard), AWS credential chain (SSO + <code>awsAuthRefresh</code>), IAM <code>bedrock:InvokeModel*</code> + inference-profile reads. <strong>Pin</strong> <code>ANTHROPIC_DEFAULT_{OPUS,SONNET,HAIKU}_MODEL</code>: unpinned aliases follow built-in defaults that change between releases (Claude Code falls back if one isn't enabled), so pinning controls when users move to a new model. No <code>/logout</code>, no WebSearch. <span class="cite"><a href="https://code.claude.com/docs/en/amazon-bedrock">Bedrock</a></span></td></tr>
+<tr><td>Google Cloud Agent Platform (formerly Vertex AI)</td><td><code>CLAUDE_CODE_USE_VERTEX=1</code> (or <code>/setup-vertex</code>), <code>CLOUD_ML_REGION</code>, <code>ANTHROPIC_VERTEX_PROJECT_ID</code>, ADC, <code>roles/aiplatform.user</code>; pin models. Microsoft Foundry is the third cloud option. <span class="cite"><a href="https://code.claude.com/docs/en/google-vertex-ai">Agent Platform</a></span></td></tr>
+<tr><td>OpenTelemetry</td><td><code>CLAUDE_CODE_ENABLE_TELEMETRY=1</code> + OTLP exporters (<code>OTEL_EXPORTER_OTLP_PROTOCOL</code> has no default), pushed via the managed <code>env</code> block. Metrics such as <code>claude_code.cost.usage</code>, <code>token.usage</code>, <code>lines_of_code.count</code>; slice by <code>OTEL_RESOURCE_ATTRIBUTES</code> (e.g. <code>team.id</code>, <code>cost_center</code>). Prompts redacted unless <code>OTEL_LOG_USER_PROMPTS=1</code>. No-setup alternative: the Teams/Enterprise analytics dashboard (adoption, accept rate, PRs with Claude Code via the GitHub app), but per-user cost needs OTel or the spend report. <span class="cite"><a href="https://code.claude.com/docs/en/monitoring-usage">Monitoring</a>; <a href="https://code.claude.com/docs/en/analytics">Analytics</a></span></td></tr>
+</tbody>
+</table>
+
+<h3>2.8 Workflow and debugging</h3>
+<table>
+<thead><tr><th>Situation</th><th>Move</th></tr></thead>
+<tbody>
+<tr><td>Non-trivial change</td><td>Explore → Plan (plan mode, Shift+Tab) → Implement → Commit; skip the plan if the diff fits in one sentence</td></tr>
+<tr><td>Quality</td><td>Give Claude a way to verify: tests, build, screenshots; a Stop hook or verification subagent as a hard gate; writer/reviewer sessions; one session writes tests, another writes code to pass them</td></tr>
+<tr><td>Context filling up</td><td><code>/clear</code> between tasks; after two failed corrections, <code>/clear</code> and rewrite the prompt; <code>/compact &lt;focus&gt;</code>; subagents for exploration</td></tr>
+<tr><td>Parallel work</td><td><code>claude -w name</code> worktrees (<code>.worktreeinclude</code> copies <code>.env</code>); <code>/batch</code> fans a change out to worktree subagents; fan-out loops of <code>claude -p</code>; background sessions (<code>claude --bg</code>, managed in <code>claude agents</code>); agent teams are experimental and off by default</td></tr>
+<tr><td>Undo</td><td>Esc+Esc or <code>/rewind</code> restores checkpoints (Bash side effects aren't tracked)</td></tr>
+<tr><td>Something's off</td><td><code>/doctor</code> in session (proposes fixes); <code>claude doctor</code> (read-only) if it won't start; <code>/debug</code>, <code>/status</code>, <code>/context</code>, <code>/hooks</code>, <code>/mcp</code>, <code>/permissions</code>; <code>claude --debug=mcp</code>; <code>claude --safe-mode</code> to rule out customizations (managed policy still applies); <code>claude --setting-sources user</code> for a clean-config test</td></tr>
+<tr><td>Classic config bugs</td><td><code>.mcp.json</code> under <code>.claude/</code> or keyed <code>servers</code>; <code>mcpServers</code> in settings.json; relative paths in MCP <code>command</code>; matcher <code>bash</code> instead of <code>Bash</code>; skill as <code>.claude/skills/x.md</code> instead of a folder</td></tr>
+<tr><td>Incident triage</td><td>Pipe logs in: <code>cat error.log | claude -p "…"</code>; connect monitoring via MCP or CLIs</td></tr>
+</tbody>
+</table>
+<p class="cite"><a href="https://code.claude.com/docs/en/best-practices">Best practices</a>; <a href="https://code.claude.com/docs/en/worktrees">Worktrees</a>; <a href="https://code.claude.com/docs/en/troubleshooting">Troubleshooting</a>; <a href="https://code.claude.com/docs/en/debug-your-config">Debug your config</a>.</p>
+
+<!-- ============================================================ -->
+<h2>3 · Practice</h2>
+
+<div class="q" data-topic="d7" data-answer="0">
+  <p class="stem">Security deploys <code>"deny": ["Read(./.env)"]</code> in managed settings. A developer adds <code>"allow": ["Read(./.env)"]</code> to their <code>.claude/settings.local.json</code>. What happens when Claude tries to read <code>.env</code>?</p>
+  <ol class="options">
+    <li>Blocked, because deny rules win across every scope</li>
+    <li>Allowed, because local settings override shared project settings</li>
+    <li>Prompted, because conflicting rules fall back to ask</li>
+    <li>Allowed, because the more specific rule takes priority</li>
+  </ol>
+  <div class="explain">Evaluation is deny → ask → allow, first match wins, and a deny at any level beats an allow at any level. Local-over-project precedence applies to scalar values, not to undoing denies; conflicts don't degrade to ask; specificity is explicitly irrelevant. <span class="cite"><a href="https://code.claude.com/docs/en/permissions">Permissions</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d7" data-answer="0">
+  <p class="stem">A platform team wants every engineer who clones a repo to get the same GitHub and Sentry MCP servers, versioned with the code. What should they do?</p>
+  <ol class="options">
+    <li>Commit a .mcp.json at the repository root</li>
+    <li>Add mcpServers to the shared settings.json file</li>
+    <li>Put the .mcp.json inside the .claude folder</li>
+    <li>Each engineer adds servers at user scope</li>
+  </ol>
+  <div class="explain">Project scope = <code>.mcp.json</code> at the repo root (<code>claude mcp add --scope project</code>). <code>mcpServers</code> inside settings.json isn't read, a <code>.mcp.json</code> under <code>.claude/</code> isn't found (both listed as common config bugs), and user scope is neither shared nor versioned. <span class="cite"><a href="https://code.claude.com/docs/en/mcp">MCP</a>; <a href="https://code.claude.com/docs/en/debug-your-config">Debug your config</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d7" data-answer="0">
+  <p class="stem">CLAUDE.md says "never force-push to main", yet Claude occasionally tries. The team needs a guarantee. What do you add?</p>
+  <ol class="options">
+    <li>A PreToolUse hook that exits with code 2</li>
+    <li>A stronger CLAUDE.md rule written in all capitals</li>
+    <li>A PostToolUse hook that reverts the forced push</li>
+    <li>A PreToolUse hook that exits with code 1</li>
+  </ol>
+  <div class="explain">CLAUDE.md is advisory context; hooks are deterministic. A PreToolUse hook that exits 2 blocks the call before permission rules are checked, even if an allow rule matches, and feeds stderr back to Claude. Exit 1 is a non-blocking error by default, so the push proceeds. PostToolUse runs after the push already happened; reverting a force-push is not a guarantee. <span class="cite"><a href="https://code.claude.com/docs/en/hooks">Hooks</a>; <a href="https://code.claude.com/docs/en/best-practices">Best practices</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d7" data-answer="0,1">
+  <p class="stem">A CI job runs <code>claude -p</code> on pull requests, including PRs that may modify files under <code>.claude/</code>. Which <strong>two</strong> choices make the run safe and reproducible?</p>
+  <ol class="options">
+    <li>Run with --bare so repo config never loads</li>
+    <li>Scope --allowedTools narrowly and set the dontAsk mode</li>
+    <li>Use bypassPermissions so the job never stalls waiting</li>
+    <li>Rely on the workspace trust dialog for protection</li>
+  </ol>
+  <div class="explain">Without <code>--bare</code>, <code>-p</code> runs project hooks and <code>.mcp.json</code> servers even in untrusted folders, so a malicious PR could inject a hook; <code>--bare</code> skips them and is recommended for CI. A narrow <code>--allowedTools</code> with <code>dontAsk</code> auto-denies everything else. <code>bypassPermissions</code> removes all guardrails; <code>-p</code> never shows a trust dialog. <span class="cite"><a href="https://code.claude.com/docs/en/headless">Headless</a>; <a href="https://code.claude.com/docs/en/permissions">Permissions</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d7" data-answer="0">
+  <p class="stem">A deny rule <code>Bash(git push *)</code> is in place, but Claude successfully runs <code>git -C . push origin main</code>. Best explanation and fix?</p>
+  <ol class="options">
+    <li>Prefix patterns miss argument variants; add a hook</li>
+    <li>Deny rules need a session restart to apply</li>
+    <li>User deny rules lose to project allow rules</li>
+    <li>The rule needs a trailing double star wildcard</li>
+  </ol>
+  <div class="explain">Bash rules are pattern matches on the command string; the docs list <code>git -C . push</code>, binaries called by path and <code>sh -c</code> as cases they miss. Back them with a PreToolUse hook that parses the command, or the sandbox. Deny beats allow in every scope; <code>**</code> is path syntax, not a fix for argument order. <span class="cite"><a href="https://code.claude.com/docs/en/permissions">Permissions</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d7" data-answer="0,1">
+  <p class="stem">A monorepo's root CLAUDE.md has grown to 450 lines covering every service, and Claude increasingly ignores parts of it. Which <strong>two</strong> changes help most?</p>
+  <ol class="options">
+    <li>Move area-specific guidance into path-scoped rule files</li>
+    <li>Turn must-always rules into deterministic hook scripts</li>
+    <li>Split it into @imports to save context</li>
+    <li>Copy critical rules into every subdirectory CLAUDE.md</li>
+  </ol>
+  <div class="explain">Bloated files get ignored; target under 200 lines. <code>.claude/rules/</code> with <code>paths:</code> frontmatter loads guidance only when matching files are touched, and anything that must always happen belongs in a hook. Imports still load into context, so they don't save tokens; duplicating rules adds bloat. <span class="cite"><a href="https://code.claude.com/docs/en/memory">Memory</a>; <a href="https://code.claude.com/docs/en/best-practices">Best practices</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d7" data-answer="0,1">
+  <p class="stem">Security requires that (a) only org-approved hooks ever run and (b) engineers can install plugins only from the internal marketplace. Which <strong>two</strong> controls achieve this?</p>
+  <ol class="options">
+    <li>Set allowManagedHooksOnly to true in managed settings</li>
+    <li>Set strictKnownMarketplaces to only the internal marketplace</li>
+    <li>Set disableAllHooks to true in project settings</li>
+    <li>Add the marketplace to extraKnownMarketplaces in repos</li>
+  </ol>
+  <div class="explain"><code>allowManagedHooksOnly</code> blocks user, project, local and plugin hooks; <code>strictKnownMarketplaces</code> is a managed-only allowlist of marketplace sources. <code>disableAllHooks</code> in a project file would also kill the approved hooks and is user-editable; <code>extraKnownMarketplaces</code> adds a marketplace but restricts nothing. <span class="cite"><a href="https://code.claude.com/docs/en/managed-settings">Managed settings</a>; <a href="https://code.claude.com/docs/en/plugins/org">Plugins for orgs</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d7" data-answer="0">
+  <p class="stem">Inference must stay in the company's AWS account, so Claude Code runs on Bedrock. After a Claude Code upgrade, engineers' sessions silently moved to a newer, pricier model nobody approved. Best fix?</p>
+  <ol class="options">
+    <li>Pin the default model variables in managed env</li>
+    <li>Give every engineer a personal Anthropic API key</li>
+    <li>Deny the new model with a permission rule</li>
+    <li>Have engineers run /logout and then sign in</li>
+  </ol>
+  <div class="explain">Unpinned aliases follow built-in defaults that change between releases (and can lag what your account enables); pinning <code>ANTHROPIC_DEFAULT_{OPUS,SONNET,HAIKU}_MODEL</code> centrally controls when users move to a new model. API keys break the AWS-only requirement; permission rules govern tools, not model choice; <code>/logout</code> isn't available on Bedrock. <span class="cite"><a href="https://code.claude.com/docs/en/amazon-bedrock">Bedrock</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d7" data-answer="0">
+  <p class="stem">Finance wants a dashboard of Claude Code cost per team, for all 200 engineers, without collecting prompt text. What do you set up?</p>
+  <ol class="options">
+    <li>Managed env enabling telemetry plus OTEL_RESOURCE_ATTRIBUTES team tags</li>
+    <li>A repo settings.json enabling telemetry in every repository</li>
+    <li>Enable OTEL_LOG_USER_PROMPTS so the prompts reveal team ownership</li>
+    <li>Have engineers report their weekly spend in surveys</li>
+  </ol>
+  <div class="explain">Admins enforce telemetry through the managed settings <code>env</code> block; <code>claude_code.cost.usage</code> can be sliced by resource attributes like <code>team.id</code>. A repo settings file can't enable telemetry; prompt logging is off by default and would violate the no-prompt-text constraint; surveys aren't data. <span class="cite"><a href="https://code.claude.com/docs/en/monitoring-usage">Monitoring</a>; <a href="https://code.claude.com/docs/en/settings">Settings</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d7" data-answer="0">
+  <p class="stem">An engineer must refactor an unfamiliar auth module touching about 20 files. What is the recommended way to start?</p>
+  <ol class="options">
+    <li>Plan mode first: explore, write a plan, then implement</li>
+    <li>Ask for the full refactor in one detailed prompt</li>
+    <li>Enable bypassPermissions so all the edits finish without interruptions</li>
+    <li>Write a longer CLAUDE.md describing the whole auth module</li>
+  </ol>
+  <div class="explain">Explore → Plan → Implement → Commit, using plan mode, is the documented approach when the change is non-trivial or the code unfamiliar. One giant prompt skips exploration; <code>bypassPermissions</code> is for isolated containers and removes checks; bloating CLAUDE.md costs context in every session. <span class="cite"><a href="https://code.claude.com/docs/en/best-practices">Best practices</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d7" data-answer="0">
+  <p class="stem">A long session has drifted: Claude repeats the same mistake after two corrections and the context is full of failed attempts. Best next move?</p>
+  <ol class="options">
+    <li>Run /clear and restart with a sharper prompt</li>
+    <li>Keep correcting until the model finally gets it</li>
+    <li>Switch to a larger model in this session</li>
+    <li>Add each failed correction to the root CLAUDE.md</li>
+  </ol>
+  <div class="explain">The best-practices guide names "correcting over and over" as a failure pattern: after two failed corrections, <code>/clear</code> and write a better initial prompt with what you learned. More corrections pile on polluted context; a bigger model doesn't clear the context; stuffing CLAUDE.md with one-off corrections bloats it. <span class="cite"><a href="https://code.claude.com/docs/en/best-practices">Best practices</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d7" data-answer="0,1">
+  <p class="stem">A repo's <code>.mcp.json</code> defines a stdio server with <code>"command": "./tools/mcp-server"</code>. It works for its author but not for a teammate. Which <strong>two</strong> causes are most likely?</p>
+  <ol class="options">
+    <li>The command uses a relative path to the binary</li>
+    <li>The teammate earlier dismissed the project server approval prompt</li>
+    <li>Project scoped servers must use the deprecated sse transport</li>
+    <li>The sandbox blocks every stdio MCP server by default</li>
+  </ol>
+  <div class="explain">Relative paths in <code>command</code>/<code>args</code> and a dismissed approval prompt are both listed MCP failure causes; fix with an absolute or <code>${VAR}</code> path and <code>claude mcp reset-project-choices</code>, and diagnose with <code>/mcp</code> and <code>claude --debug=mcp</code>. SSE is deprecated, not required; MCP servers run outside the sandbox. <span class="cite"><a href="https://code.claude.com/docs/en/debug-your-config">Debug your config</a>; <a href="https://code.claude.com/docs/en/mcp">MCP</a>; <a href="https://code.claude.com/docs/en/sandboxing">Sandboxing</a>.</span></div>
+</div>
+
+<!-- ============================================================ -->
+<h2>4 · Architect scenario</h2>
+
+<div class="callout">
+<p><strong>Halyard Payments</strong> (made-up) is rolling Claude Code out to 200 engineers on macOS and Linux laptops. Constraints: PCI scope, so inference must stay in its AWS account; repos contain <code>.env</code> files and a <code>secrets/</code> folder; security wants no unapproved MCP servers or plugins and an audit trail; finance wants cost per team; CI on GitHub Actions should review every PR. Engineers already have personal habits and some use <code>--dangerously-skip-permissions</code>.</p>
+</div>
+
+<div class="recall" data-topic="d7" data-title="Halyard Payments rollout">
+  <p class="prompt">Design the rollout: where each control lives (managed vs repo vs user), how secrets and dangerous commands are stopped, how MCP and plugins are governed, provider and telemetry setup, and the CI design. Name the specific settings.</p>
+  <textarea placeholder="Your design…"></textarea>
+  <div class="model">
+    <p><strong>Managed settings via MDM</strong> (top precedence, users can't override): <code>CLAUDE_CODE_USE_BEDROCK=1</code> and pinned <code>ANTHROPIC_DEFAULT_*_MODEL</code> in <code>env</code>, SSO with <code>awsAuthRefresh</code>, dedicated AWS account, minimal IAM. Deny <code>Read(./.env)</code>, <code>Read(./secrets/**)</code> and risky Bash; <code>disableBypassPermissionsMode: "disable"</code>; <code>allowManagedPermissionRulesOnly</code> and <code>allowManagedHooksOnly</code> with org PreToolUse hooks (exit 2) for force-push and similar. Sandbox enforced (<code>enabled</code>, <code>failIfUnavailable</code>, <code>allowUnsandboxedCommands: false</code>, narrow <code>allowedDomains</code>, <code>denyRead</code> for credentials). MCP: <code>allowedMcpServers</code> by <code>serverUrl</code>/<code>serverCommand</code> + <code>allowManagedMcpServersOnly</code> (or <code>managed-mcp.json</code> for a fixed set). Plugins: <code>strictKnownMarketplaces</code> = internal marketplace, <code>disableSideloadFlags</code>. Telemetry: <code>CLAUDE_CODE_ENABLE_TELEMETRY=1</code>, OTLP endpoint, <code>OTEL_RESOURCE_ATTRIBUTES</code> with <code>team.id</code>/<code>cost_center</code>; prompts stay redacted. Managed CLAUDE.md for org-wide guidance.</p>
+    <p><strong>Repo</strong>: short CLAUDE.md, path-scoped rules, <code>.claude/settings.json</code> with team allow rules and <code>enabledPlugins</code>, <code>.mcp.json</code> for approved shared servers using <code>${VAR}</code> secrets. <strong>User</strong>: personal preferences only. <strong>CI</strong>: <code>claude-code-action@v1</code> in automation mode with OIDC to Bedrock (<code>use_bedrock</code>, <code>id-token: write</code>), <code>claude_args</code> with narrow <code>--allowedTools</code>, an explicit <code>--permission-mode dontAsk</code> and <code>--max-turns</code>; job timeout, concurrency group. Pilot with a small cohort, watch OTel and <code>/doctor</code> reports, then widen. <span class="cite"><a href="https://code.claude.com/docs/en/managed-settings">Managed settings</a>; <a href="https://code.claude.com/docs/en/sandboxing">Sandboxing</a>; <a href="https://code.claude.com/docs/en/managed-mcp">Managed MCP</a>; <a href="https://code.claude.com/docs/en/amazon-bedrock">Bedrock</a>; <a href="https://code.claude.com/docs/en/github-actions">GitHub Actions</a>; <a href="https://code.claude.com/docs/en/monitoring-usage">Monitoring</a>.</span></p>
+    <ul class="rubric">
+      <li>Security controls live in managed settings, not repo or user files</li>
+      <li>Secrets blocked by Read deny rules plus sandbox, not <code>.claudeignore</code> or CLAUDE.md</li>
+      <li>Bypass mode disabled; hooks for must-never commands, with exit 2</li>
+      <li>MCP allowlist by URL/command (or managed-mcp.json); marketplace allowlist</li>
+      <li>Bedrock with pinned models, SSO, least-privilege IAM</li>
+      <li>OTel via managed env with team attributes, prompts redacted</li>
+      <li>CI: OIDC, no personal tokens, scoped tools or <code>--bare</code>, turn/time/concurrency limits</li>
+      <li>Phased rollout with a pilot and measurement</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>5 · Go deeper</h2>
+
+<div class="callout source">
+<p><strong>Primary source (read this):</strong> <a href="https://code.claude.com/docs/en/best-practices">Claude Code best practices</a> (the old anthropic.com engineering post now redirects here). It covers verification, explore-plan-code, CLAUDE.md pruning, context management, subagents, parallel sessions and the failure patterns the exam's workflow questions are built on. Then skim the <a href="../reference/claude-code-teams.html">teams cheat sheet</a> for the config details.</p>
+</div>
+
+<div class="callout ask">
+<p><strong>Ask your teacher.</strong> Anything unclear, or you disagree with an answer? Ask in the chat. If your Partner Academy notes say otherwise, tell me and the lesson gets fixed.</p>
+</div>
+
+<div id="scoreboard" class="scoreboard"></div>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

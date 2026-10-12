@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stakeholders &amp; lifecycle cheat sheet</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<nav class="crumbs"><a href="../index.html">Course map</a> · From <a href="../lessons/0007-stakeholders-lifecycle.html">Lesson 7</a></nav>
+<div class="kicker">Reference · D6</div>
+<h1>Stakeholders &amp; lifecycle</h1>
+<p class="subtitle">Define success before you build, be honest about error rates, and treat model and prompt change as routine. Rows marked <em>generic</em> are standard architecture practice, not Anthropic-specific.</p>
+
+<h2>Discovery checklist</h2>
+<table><tbody>
+<tr><th>Before prompting</th><td>Success criteria + a way to test empirically + a first-draft prompt. <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/overview">Prompt eng. overview</a></span></td></tr>
+<tr><th>Good criteria</th><td>Specific · Measurable · Achievable (not beyond frontier capability) · Relevant. Multidimensional: fidelity, consistency, relevance, tone, privacy, context use, latency, price. <span class="cite"><a href="https://platform.claude.com/docs/en/test-and-evaluate/develop-tests">Define success</a></span></td></tr>
+<tr><th>Ask</th><td>Business outcome + metric · users and workflow · data availability and quality · constraints (latency p95, cost, compliance, integration). <em>Generic</em></td></tr>
+<tr><th>Feasibility</th><td>Simplest solution; "might mean not building agentic systems at all". Deterministic rules → code. Latency and cost are often fixed by model choice, not prompting. <span class="cite"><a href="https://www.anthropic.com/engineering/building-effective-agents">BEA</a></span></td></tr>
+<tr><th>Scope</th><td>One narrow, high-value use case → pilot → evaluate → scale. <em>Generic</em></td></tr>
+</tbody></table>
+
+<h2>Communicating trade-offs</h2>
+<table><tbody>
+<tr><th>ADR</th><td>Title · Context · Decision ("We will…") · Status (proposed / accepted / deprecated / superseded) · Consequences (+/−/neutral). 1–2 pages, numbered, in the repo. Superseded ADRs are kept and linked, never deleted. <span class="cite"><a href="https://www.cognitect.com/blog/2011/11/15/documenting-architecture-decisions">Nygard</a></span></td></tr>
+<tr><th>Execs</th><td>Business metric vs cost per outcome · error rate in plain numbers + fallback · risk and timeline. <em>Generic</em></td></tr>
+<tr><th>Engineers</th><td>Per-criterion evals, latency percentiles, token budgets, versions, failure cases. <em>Generic</em></td></tr>
+<tr><th>Security / legal</th><td>Data flows (C4 context), retention and residency, tool permissions, HITL, audit logs. <em>Generic</em></td></tr>
+<tr><th>Triangle</th><td>Cost × latency × quality. "Agentic systems often trade latency and cost for better task performance." <span class="cite"><a href="https://www.anthropic.com/engineering/building-effective-agents">BEA</a></span></td></tr>
+<tr><th>Non-determinism</th><td>Report rates over repeated trials. pass@k = ≥1 of k succeeds; pass^k = all k succeed (75% → pass^3 ≈ 42%). <span class="cite"><a href="https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents">Demystifying evals</a></span> A non-default <code>temperature</code> / <code>top_p</code> / <code>top_k</code> returns a 400 error on Claude 4.7+ (deprecated). <span class="cite"><a href="https://platform.claude.com/docs/en/about-claude/model-deprecations">Deprecations</a></span></td></tr>
+</tbody></table>
+
+<h2>SLI · SLO · SLA</h2>
+<p class="cite"><a href="https://sre.google/sre-book/service-level-objectives/">Google SRE book, ch. 4</a></p>
+<ul>
+<li><strong>SLI</strong>: a quantitative measure of the service. <strong>SLO</strong>: a target for an SLI. <strong>SLA</strong>: a contract with consequences. Test: "what happens if the SLOs aren't met?"</li>
+<li>Don't base targets on current performance · keep it simple · avoid absolutes · as few SLOs as possible · perfection can wait (start loose, tighten).</li>
+<li>Safety margin: internal SLO tighter than the advertised one. Don't overachieve. Percentiles, not averages.</li>
+<li>Error budget = allowed miss rate → paces releases.</li>
+<li>LLM SLIs include quality (% correct on a graded sample, escalation recall) as well as latency and availability. <em>Generic</em></li>
+<li><strong>Platform ceiling:</strong> Standard tier = default, best-effort. Rate limits (RPM / ITPM / OTPM per model, by usage tier) are maximums, not guarantees. 429 + <code>retry-after</code>; ramp gradually (acceleration limits); spend-cap 429 has no <code>retry-after</code>; 529 = overloaded. SDKs retry twice with backoff. Cache reads don't count toward ITPM (most models). Priority Tier (99.5% target) no longer sold; existing commitments only. Your SLA must sit below this. <span class="cite"><a href="https://platform.claude.com/docs/en/api/service-tiers">Service tiers</a> · <a href="https://platform.claude.com/docs/en/api/rate-limits">Rate limits</a> · <a href="https://platform.claude.com/docs/en/api/errors">Errors</a></span></li>
+<li><code>anthropic-version: 2023-06-01</code> (SDKs set it). Existing params preserved; new optional fields and enum values may appear. <span class="cite"><a href="https://platform.claude.com/docs/en/api/versioning">Versions</a></span></li>
+</ul>
+
+<h2>Expectations &amp; feedback</h2>
+<ul>
+<li>"99% accurate" → of what, measured how, on what data, and what does an error cost? Turn it into multidimensional criteria. <span class="cite"><a href="https://platform.claude.com/docs/en/test-and-evaluate/develop-tests">Define success</a></span></li>
+<li>Demo ≠ production: "the last mile often becomes most of the journey". ~20 real queries can detect large effects. <span class="cite"><a href="https://www.anthropic.com/engineering/multi-agent-research-system">Multi-agent research</a></span></li>
+<li>Start with 20–50 tasks from real failures. Swiss-cheese layers: automated evals · production monitoring · A/B · user feedback · transcript review · systematic human studies. <span class="cite"><a href="https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents">Demystifying evals</a></span></li>
+<li>Evals mirror the real task distribution and include edge cases. Volume over hand-graded perfection. <span class="cite"><a href="https://platform.claude.com/docs/en/test-and-evaluate/develop-tests">Develop tests</a></span></li>
+</ul>
+
+<h2>Documentation</h2>
+<table>
+<thead><tr><th>Artifact</th><th>Point</th></tr></thead>
+<tbody>
+<tr><td>C4 context / container</td><td>Context = one system + its people + external systems, for technical and non-technical readers. Context + container suffice for most teams. <span class="cite"><a href="https://c4model.com/diagrams">C4</a></span></td></tr>
+<tr><td>ADR log</td><td>Why each decision was made, plus its consequences.</td></tr>
+<tr><td>Runbook / playbook</td><td>≈ 3× better MTTR than "winging it". <span class="cite"><a href="https://sre.google/sre-book/introduction/">SRE intro</a></span> Add: <a href="https://status.claude.com/">status.claude.com</a>, 429/529 handling, <code>request-id</code> on support tickets. <span class="cite"><a href="https://platform.claude.com/docs/en/api/errors">Errors</a></span></td></tr>
+<tr><td>Prompt + model record</td><td>Versioned prompts, pinned model ID, eval score per version. <em>Generic</em></td></tr>
+<tr><td>Eval report</td><td>Dataset, graders, per-criterion results, repeated-trial rates.</td></tr>
+<tr><td>Handoff doc</td><td>Owners, SLOs, dashboards, escalation, how to re-run evals, deprecation calendar. <em>Generic</em></td></tr>
+</tbody></table>
+
+<h2>Lifecycle</h2>
+<p>Discovery → design → handoff → monitoring → iteration. <span class="cite"><a href="../sources/ccar-p-exam-guide.pdf">Exam guide D6</a></span></p>
+<ul>
+<li><strong>Model states:</strong> Active → Legacy (no updates) → Deprecated (works, less reliable, replacement + retirement date) → Retired (requests fail). ≥ 60 days' notice by email. Audit: Console → Usage → Export (CSV by key and model). Test replacements well before retirement. Dates cover Claude API, Claude Platform on AWS, Microsoft Foundry; Bedrock and Google Cloud set their own. Oct 2026 example: <code>claude-sonnet-4-5-20250929</code> deprecated 30 Sep, retires 30 Nov 2026 → <code>claude-sonnet-5-5</code>. <span class="cite"><a href="https://platform.claude.com/docs/en/about-claude/model-deprecations">Deprecations</a></span></li>
+<li><strong>IDs are pinned snapshots.</strong> 4.6+ dateless IDs <em>are</em> the snapshot (not aliases). Pre-4.6 dated IDs; their short aliases point to the latest dated snapshot. Updates ship as new IDs. Infrastructure changes can cause minor drift. <span class="cite"><a href="https://platform.claude.com/docs/en/about-claude/models/model-ids-and-versions">Model IDs</a></span></li>
+<li><strong>Migrations break things:</strong> per-model migration guides (e.g. Sonnet 5.5: sampling params, prefill, forced <code>tool_choice</code> → 400; budgets → effort). Claude Code <code>/claude-api migrate</code> applies changes + verification checklist. Watch release notes. <span class="cite"><a href="https://platform.claude.com/docs/en/about-claude/models/migration-guide">Migration guides</a> · <a href="https://platform.claude.com/docs/en/release-notes/overview">Release notes</a></span></li>
+<li><strong>Re-run evals on every change.</strong> Capability evals (low pass rate, room to climb) vs regression evals (≈100%). Teams with evals upgrade in days. <span class="cite"><a href="https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents">Demystifying evals</a></span></li>
+<li><strong>Rainbow deployment:</strong> old and new run together while traffic shifts gradually, so long-running agents aren't broken mid-task. <span class="cite"><a href="https://www.anthropic.com/engineering/multi-agent-research-system">Multi-agent research</a></span></li>
+<li>~70% of outages come from changes → progressive rollout, fast detection, safe rollback. <span class="cite"><a href="https://sre.google/sre-book/introduction/">SRE intro</a></span></li>
+</ul>
+</body>
+</html>

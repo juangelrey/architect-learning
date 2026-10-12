@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Governance, safety &amp; risk cheat sheet</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<nav class="crumbs"><a href="../index.html">Course map</a> · From <a href="../lessons/0006-governance-safety-risk.html">Lesson 6</a></nav>
+<div class="kicker">Reference · D5</div>
+<h1>Governance, safety &amp; risk</h1>
+<p class="subtitle">Remove before you monitor. Layer the controls. Put humans where actions can't be undone. Facts as of Oct 2026 (checked 12 Oct 2026), so re-verify before advising. <span class="cite"><a href="https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/mitigate-jailbreaks">Mitigate jailbreaks</a></span></p>
+
+<h2>Guardrail layers (defence in depth)</h2>
+<table>
+<thead><tr><th>Layer</th><th>Control</th><th>Type</th></tr></thead>
+<tbody>
+<tr><td>Input</td><td>Haiku harmlessness screen + structured outputs; <code>stop_reason: "refusal"</code> = harmful. Input validation against known jailbreak patterns.</td><td>Preventive</td></tr>
+<tr><td>Prompt</td><td>Boundaries + exact refusal wording. Untrusted content only in <code>tool_result</code>, with its source labelled; untrusted-content policy; JSON-encode. Never put your instructions in tool results.</td><td>Preventive</td></tr>
+<tr><td>Capability</td><td>Least privilege: drop unneeded tools and secrets, narrow scopes, sandbox. Claude Code: OS-enforced filesystem limits + network allowlist that starts empty. Shell commands only; file tools, MCP and hooks run outside it. <span class="cite"><a href="https://code.claude.com/docs/en/sandboxing">Sandboxing</a></span></td><td>Preventive</td></tr>
+<tr><td>Tool output</td><td>Small-model injection screen before Claude acts. Anthropic adds its own classifiers for computer-use and browser-use tool output.</td><td>Preventive</td></tr>
+<tr><td>Output</td><td>Leak and PII filters (regex, keywords, LLM filter).</td><td>Detective / corrective</td></tr>
+<tr><td>Ops</td><td>Monitoring, throttle or ban repeat offenders, red-team with seeded injections.</td><td>Detective</td></tr>
+</tbody></table>
+<ul>
+<li><strong>Exam heuristic:</strong> least privilege = <em>remove</em> the tool. Logging and confirmations are "detective/compensating". A bigger model ≠ a security fix. <span class="cite"><a href="../sources/ccar-p-exam-guide.pdf">Exam guide sample 1</a></span></li>
+<li><strong>Prompt leak:</strong> try monitoring and post-processing first; leak-proofing adds complexity that can degrade performance. <span class="cite"><a href="https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/reduce-prompt-leak">Reduce prompt leak</a></span></li>
+</ul>
+
+<h2>Failure modes → fix</h2>
+<table><tbody>
+<tr><th>Hallucination</th><td>Allow "I don't know" · quotes first (&gt;20k tokens) · cite and verify, retract claims without a quote · restrict to docs · best-of-N. Reduces, never eliminates. <span class="cite"><a href="https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/reduce-hallucinations">Docs</a></span></td></tr>
+<tr><th>Prompt injection</th><td>Direct (user is the attacker) vs indirect (content is the attacker). Layered controls above.</td></tr>
+<tr><th>Data leakage</th><td>Minimise data · no secrets in context · authorise before retrieval · output filters.</td></tr>
+<tr><th>Excessive agency</th><td>Root causes: functionality / permissions / autonomy → minimise tools and scopes, run tools in the user's context, human approval for high-impact actions, complete mediation (authorisation in code, not the LLM). Logging and rate limits only limit damage. <span class="cite"><a href="https://genai.owasp.org/resource/owasp-genai-llm-top-10-2026/">OWASP LLM03:2026</a></span></td></tr>
+<tr><th>Compounding errors</th><td>Stop conditions, sandboxed testing, gates. <span class="cite"><a href="https://www.anthropic.com/engineering/building-effective-agents">BEA</a></span></td></tr>
+<tr><th>Non-determinism</th><td>Structured outputs, examples, retrieval, chaining. <span class="cite"><a href="https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/increase-consistency">Docs</a></span></td></tr>
+<tr><th>Knowledge cutoff</th><td>Retrieval or web search. Models page lists the reliable knowledge cutoff (most extensive and reliable) and the broader training data cutoff. Both are Jun 2026 for current models. <span class="cite"><a href="https://platform.claude.com/docs/en/models/overview">Models</a></span></td></tr>
+<tr><th>Sycophancy</th><td>Agrees with a wrong premise (RLHF side effect). Neutral prompts, ground-truth evals. <span class="cite"><a href="https://www.anthropic.com/research/towards-understanding-sycophancy-in-language-models">Research</a></span></td></tr>
+</tbody></table>
+
+<h2>OWASP LLM Top 10 · version 2026</h2>
+<p class="cite"><a href="https://genai.owasp.org/resource/owasp-genai-llm-top-10-2026/">OWASP GenAI, Aug 2026</a>. It covers the model as a component. For agents, pair it with the Agentic list below.</p>
+<ol>
+<li>Prompt Injection (now incl. cross-modal)</li>
+<li>Sensitive Information Disclosure</li>
+<li>Excessive Agency</li>
+<li>Supply Chain</li>
+<li>Data and Model Poisoning</li>
+<li>Unbounded Consumption</li>
+<li>Misinformation</li>
+<li>Hidden Context Exposure (formerly System Prompt Leakage)</li>
+<li>Vector and Embedding Weaknesses</li>
+<li>Improper Output Handling</li>
+</ol>
+
+<h2>OWASP Top 10 for Agentic Applications 2026</h2>
+<p class="cite"><a href="https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/">OWASP GenAI, Dec 2025</a> · ASI01–ASI10</p>
+<ol>
+<li>Agent Goal Hijack</li>
+<li>Tool Misuse &amp; Exploitation</li>
+<li>Identity &amp; Privilege Abuse</li>
+<li>Agentic Supply Chain Vulnerabilities</li>
+<li>Unexpected Code Execution (RCE)</li>
+<li>Memory &amp; Context Poisoning</li>
+<li>Insecure Inter-Agent Communication</li>
+<li>Cascading Failures</li>
+<li>Human-Agent Trust Exploitation</li>
+<li>Rogue Agents</li>
+</ol>
+
+<h2>Human-in-the-loop</h2>
+<ul>
+<li><strong>Approval gate</strong>: irreversible or high-impact actions (money, deletion, external sends, posting). Graduated enforcement: auto-approve recoverable actions, escalate irreversible ones. <span class="cite"><a href="https://genai.owasp.org/resource/owasp-genai-llm-top-10-2026/">OWASP</a></span></li>
+<li><strong>Escalation</strong>: low confidence, ambiguous or out-of-policy cases.</li>
+<li><strong>Sampling review</strong>: a % of auto outputs. Detective control that also feeds evals.</li>
+<li><strong>Regulated</strong>: Usage Policy in force (15 Sep 2025) high-risk domains: legal, healthcare, insurance, finance, employment and housing, academic testing/accreditation/admissions, media/journalism. A qualified professional reviews before finalising, and the person is told AI was used. The 12 Nov 2026 version adds credit, public benefits and healthcare access, and the reviewer must be able to change the recommendation. GDPR Art. 22: right to human intervention. <span class="cite"><a href="https://www.anthropic.com/legal/archive/22742366-2ef0-4c7a-a833-6523f10d3944">AUP (in force)</a>; <a href="https://www.anthropic.com/legal/aup">AUP (12 Nov 2026)</a>; <a href="https://gdpr-info.eu/art-22-gdpr/">Art. 22</a></span></li>
+</ul>
+
+<h2>Compliance quick facts</h2>
+<table><tbody>
+<tr><th>Retention</th><td>Commercial/API: deleted within 30 days. Flagged for a policy violation: up to 2 years (inputs and outputs) and 7 years (classifier scores). <span class="cite"><a href="https://privacy.claude.com/en/articles/7996866-how-long-do-you-store-my-organization-s-data">Privacy Center</a></span></td></tr>
+<tr><th>Training</th><td>No training on commercial data by default. Exceptions: feedback (kept up to 5 years) and opt-in. <span class="cite"><a href="https://privacy.claude.com/en/articles/7996868-is-my-data-used-for-training">Privacy Center</a></span></td></tr>
+<tr><th>ZDR</th><td>Via sales, per organisation. Covers Messages + Token Counting (eligible features) and Claude Code with Commercial API keys. Enterprise Claude Code ZDR is a separate offering. <em>Not</em>: Console/playground, Managed Agents, consumer plans, Teams/Enterprise UI, Claude for Excel, CORS. Covered Models (Fable/Mythos 5.x) need 30-day retention, which can be enabled per workspace. <span class="cite"><a href="https://platform.claude.com/docs/en/manage-claude/api-and-data-retention">Docs</a></span></td></tr>
+<tr><th>GDPR</th><td>DPA: Anthropic = processor; SCCs (+UK/Swiss addenda); deletion within 30 days of termination. Minimisation (Art. 5), erasure (Art. 17). <span class="cite"><a href="https://www.anthropic.com/legal/data-processing-addendum">DPA</a></span></td></tr>
+<tr><th>Residency</th><td>1P API: <code>inference_geo</code> = <code>global</code> | <code>us</code> (1.1×); workspace geo <code>us</code> only. <strong>No EU option.</strong> EU route: Bedrock EU inference profile or in-region endpoints, or Google Cloud Agent Platform (formerly Vertex AI) <code>eu</code> multi-region. Both cost +10%, the provider is the processor, and feature gaps apply (Bedrock: no structured outputs). Foundry: US Data Zone only. <span class="cite"><a href="https://platform.claude.com/docs/en/manage-claude/data-residency">Residency</a>; <a href="https://platform.claude.com/docs/en/build-with-claude/claude-in-amazon-bedrock">Bedrock</a>; <a href="https://platform.claude.com/docs/en/build-with-claude/claude-on-vertex-ai">Google Cloud</a></span></td></tr>
+<tr><th>HIPAA</th><td><strong>API</strong>: BAA + HIPAA-ready organisation (self-serve in Console; permanent). Ineligible features → 400: Batch, Files, Skills, code execution, programmatic tool calling, web fetch, MCP connector, Managed Agents, tool search, compaction/context editing. Computer use: the docs table says eligible, the BAA article says not, so the signed BAA decides. No PHI in JSON schemas. No ZDR needed. Separate organisations for PHI and non-PHI.<br><strong>Enterprise</strong>: only after the Primary Owner activates HIPAA. Excludes Skills, connectors, Enterprise Search, Chrome.<br><strong>Claude Code</strong>: not covered by the HIPAA-ready API arrangement. Covered only when direct to Anthropic and either (a) CLI or Desktop Code tab in a HIPAA-enabled Enterprise organisation with the HIPAA configuration, or (b) ZDR. Not covered: IDE extensions, gateways/custom base URL, cloud/web/mobile, Remote Control, Bedrock/Google. <span class="cite"><a href="https://platform.claude.com/docs/en/manage-claude/api-and-data-retention">Docs</a>; <a href="https://privacy.claude.com/en/articles/8114513">BAA</a>; <a href="https://code.claude.com/docs/en/zero-data-retention">Claude Code ZDR</a></span></td></tr>
+<tr><th>FedRAMP</th><td>High: Claude for Government (Palantir FedStart; not IL5), Bedrock GovCloud, Google Cloud Agent Platform with Assured Workloads (not IL5). Commercial Bedrock: Moderate. FedRAMP 2026 relabels levels as Classes (AWS: "Class D, formerly High"). GovCloud is per model: Opus/Sonnet 5.5 are Class D without IL4/IL5, Sonnet 5 has IL4/IL5, Haiku 5.5 is commercial-only. Not authorised: Claude Enterprise, 1P API, Claude Platform on AWS (Marketplace doesn't change that). Services are authorised, not models. <span class="cite"><a href="https://claude.com/solutions/government">Public sector</a>; <a href="https://aws.amazon.com/compliance/services-in-scope/FedRAMP/amazon-bedrock-models/">AWS list</a></span></td></tr>
+</tbody></table>
+
+<h2>Ethics</h2>
+<ul>
+<li><strong>Bias eval</strong>: paired prompts that vary only demographics (Anthropic: 70 scenarios; prompting cut discrimination). Make it a release gate. Anthropic does "not endorse or permit" automated high-stakes decisions. <span class="cite"><a href="https://www.anthropic.com/research/evaluating-and-mitigating-discrimination-in-language-model-decisions">Research</a></span></li>
+<li><strong>Transparency</strong>: chatbots must disclose AI at least at the start of each chat session (from 12 Nov 2026, the product interface also counts). High-risk outputs must disclose AI use. Cite quotes for explainability. <span class="cite"><a href="https://www.anthropic.com/legal/archive/22742366-2ef0-4c7a-a833-6523f10d3944">AUP</a></span></li>
+</ul>
+</body>
+</html>

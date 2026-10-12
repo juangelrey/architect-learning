@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>D3 · I: Tools, auth &amp; integration protocols</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-lesson="0003-integration-tools-protocols">
+
+<nav class="crumbs"><a href="../index.html">Course map</a> · <a href="../reference/blueprint.html">Exam blueprint</a> · <a href="../reference/integration-tools.html">Integration cheat sheet</a> · Prev: <a href="0002-models-prompting-context.html">D2</a> · Next: <a href="0004-integration-rag-observability.html">D3 · II</a></nav>
+
+<div class="kicker">Lesson 3 · Domain 3 (part 1) · 19% of the exam</div>
+<h1>D3 · I: Tools, auth &amp; integration protocols</h1>
+<p class="subtitle">The biggest domain. Its favourite move: an agent with too much power, a token in the wrong place, or a context full of tools it doesn't need. Pick the fix that <em>removes</em> the problem.</p>
+
+<div class="meta">
+  <span>≈ 18 minutes</span>
+  <span>3 review + 1 recall + 13 questions + 1 scenario</span>
+  <span><span class="tag d3">D3</span></span>
+</div>
+
+<div class="callout source">
+<p><strong>Versions taught.</strong> MCP <strong>2026-07-28</strong> (the current revision: stateless, no sessions), A2A <strong>v1.0</strong>, and the Claude API docs as of October 2026. Older terms appear only as one-line "formerly" notes. <span class="cite"><a href="https://modelcontextprotocol.io/specification/2026-07-28/changelog">MCP changelog 2026-07-28</a>; <a href="https://a2a-protocol.org/latest/specification/">A2A spec</a>.</span></p>
+</div>
+
+<!-- ============================================================ -->
+<h2>0 · Spaced review</h2>
+
+<div class="q" data-topic="d1" data-answer="0">
+  <p class="stem">A market-intelligence team wants answers that need searching dozens of independent sources at once. The value per report is high and the information far exceeds one context window. Which design fits best?</p>
+  <ol class="options">
+    <li>A lead agent delegating parallel searches to many subagents</li>
+    <li>A fixed prompt chain searching the sources in sequence</li>
+    <li>A router that sends each query to one source</li>
+    <li>A single agent loading every source into its context</li>
+  </ol>
+  <div class="explain">Breadth-first, parallelisable, high-value, more information than one window: this is exactly where <strong>orchestrator + subagents</strong> pays for its ~15× token cost. A chain can't adapt to the sources found. A router picks one handler. One agent with everything loaded hits context limits. <span class="cite"><a href="https://www.anthropic.com/engineering/multi-agent-research-system">Multi-agent research system</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d2" data-answer="0">
+  <p class="stem">An agent's backend rebuilds the <code>tools</code> array on every turn, adding or removing tools based on the user's last message. Prompt-cache reads are almost zero. What is the most likely cause?</p>
+  <ol class="options">
+    <li>Changing tool definitions invalidates the whole cached prefix</li>
+    <li>Tool definitions are never eligible for prompt caching</li>
+    <li>The cache lifetime is shorter than one turn</li>
+    <li>Cache breakpoints only apply to user message blocks</li>
+  </ol>
+  <div class="explain">The cache prefix is built <code>tools → system → messages</code>, and changing tool definitions invalidates the <strong>entire</strong> cache. Keep the tool list stable. To load tools on demand without breaking the cache, use tool search with <code>defer_loading</code>: deferred tools are kept out of the prefix. The default TTL is 5 minutes and is refreshed on each hit. <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/prompt-caching">Prompt caching</a>; <a href="https://platform.claude.com/docs/en/agents-and-tools/tool-use/tool-search-tool">Tool search tool</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d2" data-answer="0">
+  <p class="stem">A logistics firm needs real-time classification of 2 million short status messages a day, with a tight latency budget. According to Anthropic's model guidance, where should the team start?</p>
+  <ol class="options">
+    <li>Fastest, cheapest model first; upgrade only for eval gaps</li>
+    <li>Most capable model first; downgrade once the prompts stabilise</li>
+    <li>A mid-tier model always, since it balances every trade-off</li>
+    <li>Whichever model has the very largest available context window</li>
+  </ol>
+  <div class="explain"><strong>Efficiency-first</strong> fits "tight latency requirements", "cost-sensitive" and "high-volume, straightforward tasks". Today that means starting with Haiku 5.5. Capability-first is for complex reasoning where accuracy outweighs cost. Either way, an eval set decides. <span class="cite"><a href="https://platform.claude.com/docs/en/about-claude/models/choosing-a-model">Choosing a model</a>.</span></div>
+</div>
+
+<!-- ============================================================ -->
+<h2>1 · Recall first</h2>
+
+<div class="recall" data-topic="d3" data-title="Tools & auth recall">
+  <p class="prompt">Without looking: (a) What is <em>token passthrough</em>, and why does the MCP spec forbid it? (b) Name three tool-design moves that reduce capability bloat or context use. (c) What are the three MCP server primitives, and who controls each? (d) Name two ways to avoid loading every tool or instruction into context up front.</p>
+  <textarea placeholder="(a) …&#10;(b) …&#10;(c) …&#10;(d) …"></textarea>
+  <div class="model">
+    <p>(a) An MCP server accepts a token that wasn't issued <em>to it</em> and forwards it to a downstream API. It's forbidden because it bypasses the server's controls (rate limits, validation), breaks audit trails, and lets a stolen token turn the server into an exfiltration proxy. The fix: the server MUST only accept tokens issued for itself, and gets a <em>separate</em> token for upstream calls.<br>
+    (b) Give the agent only the tools it needs (least privilege). Merge multi-step chains into one tool (e.g. <code>schedule_event</code>). Use namespacing (<code>asana_search</code>). Write detailed descriptions. Return high-signal fields and readable names instead of UUIDs. Add pagination, filtering and truncation, plus a <code>concise</code>/<code>detailed</code> response format.<br>
+    (c) <strong>Prompts</strong>: user-controlled (slash commands). <strong>Resources</strong>: application-controlled (context the client attaches). <strong>Tools</strong>: model-controlled (functions the LLM calls).<br>
+    (d) Agent Skills (only name and description load at startup; the body loads when triggered). The tool search tool with <code>defer_loading</code> (Claude Code defers MCP tool definitions by default). Programmatic tool calling or code execution with MCP (intermediate results stay in the sandbox). Just-in-time retrieval through lightweight identifiers.</p>
+    <ul class="rubric">
+      <li>Passthrough = forwarding a token not issued to the server; audience validation is the fix</li>
+      <li>At least three tool-design moves (minimal set, consolidation, namespacing, descriptions, response shaping)</li>
+      <li>Prompts/resources/tools with user/application/model control</li>
+      <li>At least two progressive-discovery mechanisms</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>2 · The ideas that matter</h2>
+
+<h3>Capability bloat: fewer, better tools</h3>
+
+<p><strong>Remove, don't monitor.</strong> The official sample's lesson: least privilege means <em>dropping</em> tools the job doesn't need. Logging them or adding confirmation prompts is not enough. <span class="cite"><a href="../reference/blueprint.html">Blueprint heuristics</a>.</span> Anthropic names "bloated tool sets that cover too much functionality" as a common failure. The test: "If a human engineer can't definitively say which tool should be used in a given situation, an AI agent can't be expected to do better." Aim for a "minimal viable set". <span class="cite"><a href="https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents">Context engineering</a>.</span> Narrow permissions also limit the blast radius: "An agent with read-only DB access … can be deployed far more broadly than one that writes to prod." <span class="cite"><a href="https://www.anthropic.com/engineering/how-we-contain-claude">How we contain Claude</a>.</span></p>
+
+<table>
+<thead><tr><th>Move</th><th>What it looks like</th></tr></thead>
+<tbody>
+<tr><td>Consolidate workflows</td><td><code>schedule_event</code> replaces list_users + list_events + create_event. <code>search_logs</code> replaces <code>read_logs</code>. <span class="cite"><a href="https://www.anthropic.com/engineering/writing-tools-for-agents">Writing tools for agents</a></span> Or use one tool with an <code>action</code> parameter instead of create_pr / review_pr / merge_pr. <span class="cite"><a href="https://platform.claude.com/docs/en/agents-and-tools/tool-use/define-tools">Define tools</a></span></td></tr>
+<tr><td>Namespace</td><td>Prefix by service or resource: <code>asana_search</code>, <code>jira_search</code>, <code>github_list_prs</code>. This matters even more with tool search. <span class="cite"><a href="https://platform.claude.com/docs/en/agents-and-tools/tool-use/define-tools">Define tools</a></span></td></tr>
+<tr><td>Describe like onboarding a new hire</td><td>"By far the most important factor in tool performance." Say what the tool does, when to use it (and when not), what each parameter means, and its limits. Aim for at least 3–4 sentences. Use unambiguous parameter names (<code>user_id</code>, not <code>user</code>). <span class="cite"><a href="https://platform.claude.com/docs/en/agents-and-tools/tool-use/define-tools">Define tools</a>; <a href="https://www.anthropic.com/engineering/writing-tools-for-agents">Writing tools</a></span></td></tr>
+<tr><td>Shape responses</td><td>Return high-signal fields and readable names, not cryptic IDs; this reduces hallucinated identifiers. Offer a <code>response_format</code> enum (concise used ~⅓ of the tokens of detailed). Add pagination, filtering and truncation with sensible defaults. Claude Code caps tool responses at 25,000 tokens by default. Make error messages say how to fix the call. <span class="cite"><a href="https://www.anthropic.com/engineering/writing-tools-for-agents">Writing tools</a></span></td></tr>
+</tbody>
+</table>
+
+<h3>AuthN/AuthZ: where the security gaps hide</h3>
+
+<p><strong>MCP authorization in one paragraph.</strong> Authorization is optional and applies to HTTP transports. A protected MCP server is an <strong>OAuth 2.1 resource server</strong>. It answers an unauthenticated request with 401 + <code>WWW-Authenticate</code>, pointing to its Protected Resource Metadata (RFC 9728), which names its authorization server. The client first requests the <code>scope</code> given in that challenge (least privilege). Clients MUST use <strong>PKCE</strong>, MUST send the <code>resource</code> parameter (RFC 8707) naming the target server, MUST check the <code>iss</code> in the authorization response against the issuer they recorded (RFC 9207, against mix-up attacks), and MUST put tokens in the <code>Authorization: Bearer</code> header, never the query string. Servers MUST validate that each token was issued <em>for them</em> (audience). stdio servers should not use this flow; they "retrieve credentials from the environment". <span class="cite"><a href="https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization">MCP Authorization</a>.</span></p>
+
+<p><strong>Client registration.</strong> A client gets its <code>client_id</code> in this order: (1) <strong>pre-registration</strong> if the client and server already know each other; (2) a <strong>Client ID Metadata Document</strong> (CIMD): the <code>client_id</code> is an HTTPS URL to a JSON document with <code>client_name</code> and <code>redirect_uris</code>, which the authorization server fetches and validates. This is the default when there's no prior relationship; (3) Dynamic Client Registration only as a fallback (deprecated in 2026-07-28); (4) ask the user. <span class="cite"><a href="https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization/client-registration">Client registration</a>.</span></p>
+
+<table>
+<thead><tr><th>Gap in the scenario</th><th>Why it's dangerous</th><th>Fix</th></tr></thead>
+<tbody>
+<tr><td><strong>Token passthrough</strong>: MCP server forwards the client's token to a downstream API</td><td>Bypasses rate limits and validation; audit logs show the wrong identity; a stolen token turns the server into an exfiltration proxy</td><td>Server "MUST NOT accept any tokens that were not explicitly issued for the MCP server". Use a <em>separate</em> token from the upstream authorization server. <span class="cite"><a href="https://modelcontextprotocol.io/docs/2026-07-28/tutorials/security/security_best_practices">Security best practices</a></span></td></tr>
+<tr><td>Server accepts tokens meant for another service</td><td>Tokens can be replayed across services</td><td>Client sends <code>resource</code>; server checks audience and returns 401 if it's wrong. <span class="cite"><a href="https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization">Authorization</a></span></td></tr>
+<tr><td><strong>Confused deputy</strong>: MCP proxy uses a <em>static client ID</em> with a third-party authorization server, lets its own clients register dynamically, and the third party sets a consent cookie</td><td>An attacker registers a client with their own <code>redirect_uri</code>; the consent cookie skips the consent screen, and the authorization code goes to the attacker</td><td>Proxy MUST get <strong>per-client consent</strong> before forwarding, validate redirect URIs exactly, and use single-use <code>state</code>. <span class="cite"><a href="https://modelcontextprotocol.io/docs/2026-07-28/tutorials/security/security_best_practices">Security best practices</a></span></td></tr>
+<tr><td><strong>State-handle hijacking</strong>: a server mints a cart or workflow ID and trusts whoever presents it (formerly session hijacking, when MCP had sessions)</td><td>A guessed or leaked handle lets an attacker read or change another user's state</td><td>Servers "MUST NOT treat possession of a state handle as authentication". Use random, expiring handles bound to the user ID taken from the verified token. <span class="cite"><a href="https://modelcontextprotocol.io/docs/2026-07-28/tutorials/security/security_best_practices">Security best practices</a></span></td></tr>
+<tr><td><strong>Mix-up attack</strong>: a malicious authorization server tricks a client into sending it a code from an honest one</td><td>The attacker redeems the code; PKCE alone doesn't stop it, because the verifier goes to the attacker too</td><td>Client records the expected issuer and validates <code>iss</code> (RFC 9207) before redeeming the code. <span class="cite"><a href="https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization/security-considerations">Authorization security considerations</a></span></td></tr>
+<tr><td>Omnibus scopes (<code>files:*</code>, <code>admin:*</code>) requested up front</td><td>A stolen token has a large blast radius; audit noise; users abandon consent screens</td><td>Start with minimal scopes, then step up: the server answers 403 <code>insufficient_scope</code> with the scope needed for this operation. <span class="cite"><a href="https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization">Authorization</a></span></td></tr>
+<tr><td>One shared service account for all users</td><td>The agent can see what no single user could; no per-user audit trail</td><td>Use a user-delegated OAuth token ("on behalf of a resource owner"). Keep service (<code>client_credentials</code>) identity for work the system does on its own behalf. <span class="cite"><a href="https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization">Authorization</a></span></td></tr>
+<tr><td>Secrets inside the agent's sandbox or prompt</td><td>Anything the agent can read, an injection can exfiltrate</td><td>"If credentials never enter the sandbox, they can't be exfiltrated." Use per-session scoped tokens that can be revoked. Authorization servers SHOULD issue short-lived access tokens. <span class="cite"><a href="https://www.anthropic.com/engineering/how-we-contain-claude">How we contain Claude</a>; <a href="https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization/security-considerations">Authorization security considerations</a></span></td></tr>
+</tbody>
+</table>
+
+<p><strong>Prompt injection arrives through tool results.</strong> Prompt injections are "adversarial instructions hidden within the content that AI models process", and "no browser agent is immune". <span class="cite"><a href="https://www.anthropic.com/research/prompt-injection-defenses">Mitigating prompt injections</a>.</span> "Tool output is an attack surface even when the tool is trusted." Defences that hold work at the architecture level: give granular tool permissions, use <strong>egress controls</strong> that block exfiltration "regardless of intent", and use sub-agents that isolate untrusted content and return "structured facts rather than raw text". <span class="cite"><a href="https://www.anthropic.com/engineering/how-we-contain-claude">How we contain Claude</a>.</span> MCP also says tool descriptions and annotations "should be considered untrusted" unless they come from a trusted server, and that hosts must get user consent before invoking tools. <span class="cite"><a href="https://modelcontextprotocol.io/specification/2026-07-28">MCP spec overview</a>.</span> Skills follow the same rule: install only from trusted sources and audit them like software. <span class="cite"><a href="https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview">Agent Skills</a>.</span></p>
+
+<h3>Choosing the integration mechanism</h3>
+
+<p><strong>MCP basics.</strong> MCP uses JSON-RPC between <em>hosts</em> (the LLM app), <em>clients</em> (connectors inside the host) and <em>servers</em>. Servers offer three primitives: <strong>prompts</strong> (user-controlled), <strong>resources</strong> (application-controlled) and <strong>tools</strong> (model-controlled). The one core client feature is <strong>elicitation</strong> (asking the user for input). <span class="cite"><a href="https://modelcontextprotocol.io/specification/2026-07-28/server">MCP server features</a>; <a href="https://modelcontextprotocol.io/specification/2026-07-28">Spec overview</a>.</span></p>
+
+<p><strong>MCP is stateless.</strong> Every request carries its protocol version and client capabilities in <code>_meta</code>. A client can call <code>server/discover</code> to learn a server's versions and capabilities. There are no protocol sessions: a server that needs state across calls mints an explicit handle and gets it back as an ordinary tool argument. (Formerly an <code>initialize</code> handshake and an <code>Mcp-Session-Id</code> header; both removed in 2026-07-28.) Servers never send their own requests. When a tool call needs user input or an LLM completion, the server returns an <code>input_required</code> result and the client <strong>retries</strong> the call with the answers: <strong>Multi Round-Trip Requests (MRTR)</strong>. This avoids "a shared storage layer across server instances" or "stateful load balancing". Sampling, Roots and Logging are deprecated: call your LLM provider directly, pass paths as tool parameters, and log to stderr or OpenTelemetry. <span class="cite"><a href="https://modelcontextprotocol.io/specification/2026-07-28/changelog">Changelog</a>; <a href="https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/mrtr">MRTR</a>.</span></p>
+
+<p><strong>Transports.</strong> <strong>stdio</strong>: a subprocess the client launches on the same machine. <strong>Streamable HTTP</strong>: each message is a POST to one endpoint, and the reply is JSON or an SSE stream scoped to that request. Servers MUST validate <code>Origin</code> (to stop DNS rebinding) and should bind to localhost when run locally. Every POST carries <code>MCP-Protocol-Version</code>, <code>Mcp-Method</code> and, for tool, resource and prompt calls, <code>Mcp-Name</code>. These headers mirror the body so gateways can route and rate-limit without parsing it, and servers reject any mismatch. The 2024 HTTP+SSE transport is deprecated. <span class="cite"><a href="https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http">Streamable HTTP</a>.</span> Long-running work uses the official <strong>Tasks</strong> extension (polling with durable handles). <span class="cite"><a href="https://modelcontextprotocol.io/specification/2026-07-28">Spec overview</a>.</span></p>
+
+<table>
+<thead><tr><th>Mechanism</th><th>Fits when</th><th>Watch out</th></tr></thead>
+<tbody>
+<tr><td>Direct tool use (your own function tools in the Messages API)</td><td>A few tools owned by one app; full control of the loop</td><td>Doesn't give you reuse across apps</td></tr>
+<tr><td>MCP server (stdio)</td><td>Local capability for one user's client, e.g. files or a dev tool</td><td>Credentials come from the environment; local servers run with the client's privileges, so use sandboxing and consent <span class="cite"><a href="https://modelcontextprotocol.io/docs/2026-07-28/tutorials/security/security_best_practices">Security BP</a></span></td></tr>
+<tr><td>MCP server (Streamable HTTP + OAuth)</td><td>Shared, remote, multi-tenant integration reused by many hosts and agents. Stateless, so it scales across replicas without sticky sessions <span class="cite"><a href="https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/mrtr">MRTR</a></span></td><td>All the auth gaps above</td></tr>
+<tr><td>MCP connector (Messages API <code>mcp_servers</code>)</td><td>Calling remote MCP tools straight from the API with no client code</td><td>Beta. Supports <strong>tools only</strong>; the server must be public over HTTP (no local stdio). <em>You</em> run the OAuth flow and pass <code>authorization_token</code>. Allowlist or denylist tools and set <code>defer_loading</code> with <code>mcp_toolset</code>. Its tools can't be called programmatically <span class="cite"><a href="https://platform.claude.com/docs/en/agents-and-tools/mcp-connector">MCP connector</a>; <a href="https://platform.claude.com/docs/en/agents-and-tools/tool-use/programmatic-tool-calling">PTC</a></span></td></tr>
+<tr><td>CLI tools (<code>gh</code>, <code>aws</code>, <code>gcloud</code>)</td><td>A coding agent with a shell</td><td>"Still more context-efficient than MCP servers because they don't add any per-tool listing", even though Claude Code now defers MCP tool definitions by default <span class="cite"><a href="https://code.claude.com/docs/en/costs">Claude Code costs</a></span></td></tr>
+<tr><td>A2A (Agent2Agent)</td><td>Collaborating with an <em>opaque</em> agent owned by another team or company, without access to "each other's internal state, memory, or tools". Long-running <em>tasks</em> with states (including input- and auth-required), artifacts, streaming and push notifications. Discovery via an Agent Card at <code>/.well-known/agent-card.json</code>, which declares its auth schemes (<code>securitySchemes</code>). Bindings: JSON-RPC, gRPC, HTTP+JSON <span class="cite"><a href="https://a2a-protocol.org/latest/specification/">A2A spec v1.0</a>; <a href="https://a2a-protocol.org/latest/topics/agent-discovery/">Agent discovery</a></span></td><td>"MCP is vertical. It deepens a single agent… A2A is horizontal." They complement each other; neither replaces the other. <span class="cite"><a href="https://a2a-protocol.org/latest/topics/a2a-and-mcp/">A2A and MCP</a></span></td></tr>
+</tbody>
+</table>
+
+<h3>Progressive discovery vs monolithic context</h3>
+
+<p>Context is "a finite resource with diminishing marginal returns". Find "the smallest set of high-signal tokens". Keep lightweight identifiers (paths, queries, links) and load data <em>just in time</em>. A hybrid works well: load a little up front (e.g. CLAUDE.md) and the rest on demand. <span class="cite"><a href="https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents">Context engineering</a>.</span></p>
+
+<table>
+<thead><tr><th>Mechanism</th><th>How it discloses progressively</th><th>Numbers</th></tr></thead>
+<tbody>
+<tr><td>Agent Skills</td><td>L1: name + description in the system prompt at startup. L2: SKILL.md body read when triggered. L3: bundled files and scripts only when needed; a script's code never enters context, only its output</td><td>~100 tokens per skill (L1); under 5k tokens (L2); bundled files cost nothing "until accessed", so there's "no practical limit" <span class="cite"><a href="https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview">Agent Skills</a></span></td></tr>
+<tr><td>Tool search tool</td><td>Send every definition, but mark most with <code>defer_loading: true</code>. Claude searches (regex or BM25) and gets back up to 5 matches by default. Keep the 3–5 most-used tools non-deferred. Deferred tools stay out of the prefix, so the prompt cache is preserved. You can plug in your own (e.g. embedding) search that returns <code>tool_reference</code> blocks</td><td>A 5-server setup used ~55k tokens; tool search typically cuts this by more than 85%. Selection accuracy degrades past 30–50 tools. Use it at 10+ tools or more than 10k tokens of definitions; skip it under 10 tools. Up to 10,000 deferred tools <span class="cite"><a href="https://platform.claude.com/docs/en/agents-and-tools/tool-use/tool-search-tool">Tool search tool</a></span></td></tr>
+<tr><td>Code execution with MCP</td><td>Tools appear as files the agent lists and reads on demand. Code filters data before the model sees it (5 rows instead of 10,000). Intermediate results stay in the sandbox; PII can be tokenised</td><td>150k → 2k tokens (98.7%) in Anthropic's example. Needs a secure sandbox, which adds operational overhead <span class="cite"><a href="https://www.anthropic.com/engineering/code-execution-with-mcp">Code execution with MCP</a></span></td></tr>
+<tr><td>Programmatic tool calling (GA)</td><td>Mark tools with <code>allowed_callers</code>; Claude writes code in the code-execution container that calls them. Tool results stay out of context; only the final output returns. <code>allowed_callers</code> is not a security boundary</td><td>~38% fewer input tokens on a 75-tool benchmark; typically 20–40% for 10–49 tools. Strong fit: fan-out and large results. No gain for strictly sequential calls <span class="cite"><a href="https://platform.claude.com/docs/en/agents-and-tools/tool-use/programmatic-tool-calling">Programmatic tool calling</a></span></td></tr>
+</tbody>
+</table>
+
+<!-- ============================================================ -->
+<h2>3 · Practice</h2>
+
+<div class="q" data-topic="d3" data-answer="0">
+  <p class="stem">A retailer's order-status agent has 38 tools from a shared MCP server, including <code>issue_refund</code> and <code>delete_customer</code>. Its job only needs order lookup and ticket creation. Security asks for least privilege. What should the architect do?</p>
+  <ol class="options">
+    <li>Remove every tool that the order-status job never needs</li>
+    <li>Log every refund and deletion call for later audit</li>
+    <li>Require human confirmation before any refund or deletion runs</li>
+    <li>Add a system prompt forbidding refunds and customer deletions</li>
+  </ol>
+  <div class="explain"><strong>Remove, don't monitor.</strong> Least privilege means the capability isn't there at all. Logging only detects misuse after the fact. Confirmation prompts and prompt-level bans leave the capability in place, where an injection or a mistake can still reach it. Fewer tools also improve selection accuracy. <span class="cite"><a href="../reference/blueprint.html">Blueprint heuristics</a>; <a href="https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents">Context engineering</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d3" data-answer="0">
+  <p class="stem">A scheduling agent calls <code>list_users</code>, then <code>list_events</code>, then <code>create_event</code> for every meeting request. It often fills its context with calendars and picks the wrong slot. Which tool redesign most directly helps?</p>
+  <ol class="options">
+    <li>One schedule_event tool that finds availability and books it</li>
+    <li>Separate list tools for each department to narrow results</li>
+    <li>A larger context window so full calendars fit comfortably</li>
+    <li>A stronger model so slot selection becomes more reliable</li>
+  </ol>
+  <div class="explain">Anthropic's own example: <strong>consolidate</strong> a multi-step chain into one higher-level tool that matches the workflow. More list tools add bloat. A bigger window or a bigger model treats the symptom; the raw calendars still flood context. <span class="cite"><a href="https://www.anthropic.com/engineering/writing-tools-for-agents">Writing tools for agents</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d3" data-answer="0,1">
+  <p class="stem">A CRM search tool returns 200 fields per record, including internal UUIDs and MIME types. The agent runs out of context and sometimes invents record IDs. Which <strong>two</strong> changes most directly fix this?</p>
+  <ol class="options">
+    <li>Return readable names and only high-signal fields by default</li>
+    <li>Add pagination, filtering, and a concise response format option</li>
+    <li>Add a separate tool to retrieve each field group</li>
+    <li>Ask the model to summarise each result before continuing</li>
+  </ol>
+  <div class="explain">Shape the <strong>response</strong>: resolve UUIDs to natural-language identifiers (this cuts hallucinated IDs) and return only what the next step needs. Then add <strong>pagination, filtering and truncation</strong> with a <code>response_format</code> enum. More tools adds bloat. Asking the model to summarise happens <em>after</em> the tokens have already entered context. <span class="cite"><a href="https://www.anthropic.com/engineering/writing-tools-for-agents">Writing tools for agents</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d3" data-answer="0">
+  <p class="stem">An internal MCP gateway receives the user's access token from the MCP client and forwards that same token to the HR system's API. HR's logs show calls with no gateway identity. What is the core flaw?</p>
+  <ol class="options">
+    <li>Token passthrough; the gateway needs its own upstream token</li>
+    <li>Missing PKCE; the client must add a code verifier</li>
+    <li>Handle hijacking; the gateway must bind handles to users</li>
+    <li>Transport choice; the gateway should switch to local stdio</li>
+  </ol>
+  <div class="explain"><strong>Token passthrough</strong> is explicitly forbidden. It bypasses the gateway's controls, breaks accountability (HR can't tell who is calling), and lets a stolen token use the gateway as a proxy. The server must accept only tokens issued <em>for itself</em> and use a separate token, from the upstream authorization server, for HR. PKCE protects the code exchange, not this. State-handle hijacking is about guessed cart or workflow IDs, and no handle is involved here. Switching to stdio doesn't fit a shared remote gateway and leaves the token flaw unfixed. <span class="cite"><a href="https://modelcontextprotocol.io/docs/2026-07-28/tutorials/security/security_best_practices">MCP security best practices</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d3" data-answer="0,1">
+  <p class="stem">A token issued for the company's CRM MCP server was replayed against its Finance MCP server and accepted. Which <strong>two</strong> controls from the MCP authorization spec close this gap?</p>
+  <ol class="options">
+    <li>Servers validate that each token names them as audience</li>
+    <li>Clients send a resource parameter naming the target server</li>
+    <li>Clients place access tokens inside the URL query string</li>
+    <li>Servers extend token lifetimes to reduce repeated reauthorization prompts</li>
+  </ol>
+  <div class="explain">Bind tokens to a resource: clients MUST send the RFC 8707 <code>resource</code> parameter with the server's canonical URI, and servers MUST check the audience and reject anything else with 401. Tokens in the query string are explicitly forbidden. Longer lifetimes make theft worse; authorization servers SHOULD issue short-lived tokens. <span class="cite"><a href="https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization">MCP Authorization</a>; <a href="https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization/security-considerations">Security considerations</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d3" data-answer="0">
+  <p class="stem">An MCP proxy uses one static OAuth client ID with a third-party API, lets MCP clients register dynamically, and the third party remembers consent with a cookie. An attacker's link silently obtains a user's authorization code. What is the required mitigation?</p>
+  <ol class="options">
+    <li>Per-client consent at the proxy before forwarding to third-party</li>
+    <li>Longer-lived consent cookies issued by the third-party authorization server</li>
+    <li>Wildcard redirect URI matching so all registered clients work</li>
+    <li>Passing the third-party token straight through to MCP clients</li>
+  </ol>
+  <div class="explain">This is the <strong>confused deputy</strong> attack. The proxy MUST keep a per-user registry of approved <code>client_id</code>s and show its own consent screen before redirecting to the third party. It must also match redirect URIs exactly (no wildcards) and use single-use <code>state</code>. Longer-lived consent cookies widen the hole. Passthrough is a separate anti-pattern. <span class="cite"><a href="https://modelcontextprotocol.io/docs/2026-07-28/tutorials/security/security_best_practices">MCP security best practices</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d3" data-answer="0">
+  <p class="stem">A document MCP server lists <code>files:*</code>, <code>db:*</code> and <code>admin:*</code> in <code>scopes_supported</code>, and clients request all of them on first login. Most users only read files. What is the best redesign?</p>
+  <ol class="options">
+    <li>Minimal scopes first; step up when an operation needs more</li>
+    <li>One omnibus scope so users see a single consent screen</li>
+    <li>Keep broad scopes but log every privileged tool call made</li>
+    <li>Keep broad scopes but shorten refresh token lifetime to hours</li>
+  </ol>
+  <div class="explain"><strong>Scope minimisation</strong>: <code>scopes_supported</code> should hold only the minimal set for basic use, and the server's 401 challenge can name the exact <code>scope</code> to request first. When a privileged operation is first tried, the server answers 403 <code>insufficient_scope</code> with the needed <code>scope</code>, and the client steps up (keeping the scopes it already has). Omnibus scopes and "publishing all possible scopes in <code>scopes_supported</code>" are listed as common mistakes. Logging and shorter lifetimes leave the blast radius as large as before. <span class="cite"><a href="https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization">MCP Authorization</a>; <a href="https://modelcontextprotocol.io/docs/2026-07-28/tutorials/security/security_best_practices">Security best practices</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d3" data-answer="0,1">
+  <p class="stem">An inbox-triage agent reads external customer emails, can query the CRM, and can send email. Red-teamers hid instructions in an email that made it forward CRM data outside. Which <strong>two</strong> controls most effectively reduce this risk?</p>
+  <ol class="options">
+    <li>Egress controls that restrict outbound email to approved internal domains</li>
+    <li>A sub-agent reads the emails and returns only structured facts</li>
+    <li>A system prompt line telling Claude to ignore embedded instructions</li>
+    <li>A larger model that is generally better at following instructions</li>
+  </ol>
+  <div class="explain">Tool output is an attack surface. The defences that hold are architectural: <strong>egress controls</strong> that block exfiltration "regardless of intent", and <strong>isolating untrusted content</strong> in a sub-agent that returns structured facts, not raw text. A prompt line helps a little but is not a control, and no model is immune to injection. <span class="cite"><a href="https://www.anthropic.com/engineering/how-we-contain-claude">How we contain Claude</a>; <a href="https://www.anthropic.com/research/prompt-injection-defenses">Prompt injection defenses</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d3" data-answer="0">
+  <p class="stem">A team built a stdio MCP server for its ticketing system and wants a backend service to use it through the Messages API's MCP connector (<code>mcp_servers</code>). What must change?</p>
+  <ol class="options">
+    <li>Expose the server over HTTP at a publicly reachable URL</li>
+    <li>Convert all the ticketing tools into MCP prompts and resources</li>
+    <li>Embed the server's API key directly inside the system prompt</li>
+    <li>Nothing; the MCP connector can launch local stdio servers directly</li>
+  </ol>
+  <div class="explain">The MCP connector only reaches servers "publicly exposed through HTTP" (Streamable HTTP, or the deprecated SSE transport). Local stdio servers can't be connected directly, and only <strong>tools</strong> are supported, so converting to prompts or resources makes things worse. Auth goes in <code>authorization_token</code>, which you get through OAuth yourself. Never put it in the prompt. <span class="cite"><a href="https://platform.claude.com/docs/en/agents-and-tools/mcp-connector">MCP connector</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d3" data-answer="0">
+  <p class="stem">A payments team runs its remote MCP server as 12 replicas behind a plain load balancer. One tool must get the user to confirm an amount before it charges. Under the current MCP spec, how should the server get that confirmation?</p>
+  <ol class="options">
+    <li>Return input-required; the client retries the call with answers</li>
+    <li>Pin each client to one replica with sticky sessions</li>
+    <li>Mint an Mcp-Session-Id and share it across all replicas</li>
+    <li>Push an elicitation request over a standalone GET stream</li>
+  </ol>
+  <div class="explain"><strong>Multi Round-Trip Requests</strong>: the server returns an <code>input_required</code> result holding an <code>elicitation/create</code> request, plus optional <code>requestState</code>. The client asks the user and retries the original <code>tools/call</code> with the answers, and any replica can finish it. Treat <code>requestState</code> as attacker-controlled: integrity-protect it (HMAC or AEAD) if it affects authorization or business logic. Sticky sessions and <code>Mcp-Session-Id</code> belong to the session model removed in 2026-07-28. The standalone GET stream was removed too, and servers no longer send their own requests on any stream. <span class="cite"><a href="https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/mrtr">MRTR</a>; <a href="https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http">Streamable HTTP</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d3" data-answer="0">
+  <p class="stem">A procurement agent must hand long-running sourcing requests to a supplier's own AI agent. The supplier won't expose its tools, memory or prompts, and tasks take hours with progress updates. Which mechanism fits best?</p>
+  <ol class="options">
+    <li>A2A, discovering the supplier agent through its Agent Card</li>
+    <li>MCP, wrapping the supplier's internal tools as a server</li>
+    <li>Direct API calls straight into the supplier's internal databases</li>
+    <li>A shared prompt template both companies keep in sync</li>
+  </ol>
+  <div class="explain"><strong>A2A</strong> is built for <em>opaque</em> agents that collaborate "without needing access to each other's internal state, memory, or tools". It supports long-running tasks (states, artifacts), streaming and push notifications, and discovery through an Agent Card. MCP would need the supplier to expose its tools, which it refuses; direct database calls break the same boundary; a shared prompt template is no protocol at all, with no task tracking. "A2A is about agents partnering on tasks; MCP is more about agents using capabilities." <span class="cite"><a href="https://a2a-protocol.org/latest/specification/">A2A spec</a>; <a href="https://a2a-protocol.org/latest/topics/a2a-and-mcp/">A2A and MCP</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d3" data-answer="0,1">
+  <p class="stem">An enterprise agent connects to nine MCP servers (about 220 tools, roughly 70k tokens of definitions). Tool selection errors are rising. Which <strong>two</strong> changes most directly address this?</p>
+  <ol class="options">
+    <li>Enable the tool search tool and mark most tools deferred</li>
+    <li>Keep the few most-used tools loaded and defer the rest</li>
+    <li>Move every tool definition into the system prompt text instead</li>
+    <li>Increase max_tokens so the model can reason about more tools</li>
+  </ol>
+  <div class="explain">Selection accuracy degrades past 30–50 tools, and a typical multi-server setup burns ~55k tokens before any work starts. <strong>Tool search + <code>defer_loading</code></strong> loads only the 3–5 tools needed per request. Keep the 3–5 most-used tools non-deferred. Moving definitions into the prompt is still monolithic context. <code>max_tokens</code> limits output, not input. <span class="cite"><a href="https://platform.claude.com/docs/en/agents-and-tools/tool-use/tool-search-tool">Tool search tool</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d3" data-answer="0">
+  <p class="stem">A consultancy pastes 25 workflow playbooks (about 3k tokens each) into every agent's system prompt "in case they're needed". Most tasks use one playbook or none. Which change best applies progressive disclosure?</p>
+  <ol class="options">
+    <li>Package each playbook as an Agent Skill with a clear description</li>
+    <li>Compress all the playbooks into one much shorter combined system prompt</li>
+    <li>Cache the playbooks so the long prompt costs less per call</li>
+    <li>Split the playbooks across several agents that are chosen at random</li>
+  </ol>
+  <div class="explain"><strong>Skills</strong>: only name and description (~100 tokens each) load at startup. SKILL.md (under 5k tokens) loads when the request matches the description, and extra files load only when needed. Caching cuts cost but still fills the context window and the attention budget. Compressing the playbooks loses detail. Random agent choice means the right playbook is often missing. <span class="cite"><a href="https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview">Agent Skills</a>.</span></div>
+</div>
+
+<!-- ============================================================ -->
+<h2>4 · Architect scenario</h2>
+
+<div class="callout">
+<p><strong>Marlowe &amp; Finch</strong>, an insurance broker with 2,000 staff, piloted an internal "ops copilot". The prototype is one agent with <strong>140 tools from 9 MCP servers</strong>, all loaded up front: Salesforce, SharePoint, Jira, the claims database (including <code>update_claim</code> and <code>approve_payout</code>), email send, and others. Every server authenticates with <strong>one shared admin service account</strong>. A home-grown MCP gateway <strong>forwards each employee's Entra ID token</strong> to downstream APIs. The copilot also reads inbound broker emails. Next quarter they want it to request quotes from a partner underwriter, which runs its own AI agent and won't expose internal systems. Complaints: wrong tools picked, slow first responses, and an audit finding that "we can't tell who changed claim 88213".</p>
+</div>
+
+<div class="recall" data-topic="d3" data-title="Scenario: Marlowe & Finch integration review">
+  <p class="prompt"><strong>(8 min)</strong> (a) Where is the capability bloat, and how do you fix it? (b) List the authN/authZ gaps and the fix for each. (c) Pick an integration mechanism for the internal systems and for the underwriter. (d) How do you move from monolithic to progressive context?</p>
+  <textarea placeholder="(a) … (b) … (c) … (d) …"></textarea>
+  <div class="model">
+    <p>(a) <strong>Bloat</strong>: 140 tools for every task, with write and payout tools in an assistant that mostly reads. Split by job (e.g. a read-only research copilot vs a claims workflow). <strong>Remove</strong> <code>approve_payout</code> and <code>update_claim</code> from the general copilot. Put payouts behind a separate, human-approved workflow. Consolidate overlapping tools, namespace them (<code>sf_</code>, <code>jira_</code>, <code>claims_</code>), and shape responses (readable names, pagination).<br>
+    (b) <strong>Shared admin account</strong> → user-delegated OAuth per employee with minimal scopes plus step-up; this restores per-user audit ("who changed 88213"). <strong>Gateway forwards Entra token</strong> → token passthrough. The gateway accepts only tokens issued for itself (audience check, <code>resource</code> parameter) and gets separate downstream tokens. If it proxies third parties with a static client ID, add per-client consent (confused deputy). Clients identify themselves with pre-registration (internal) or a Client ID Metadata Document, not Dynamic Client Registration (deprecated). <strong>Inbound emails</strong> → prompt-injection path to CRM data and email send. Isolate email reading in a sub-agent that returns structured facts, and add egress limits on email send. <strong>Secrets</strong> stay out of the agent's context and sandbox, with short-lived tokens.<br>
+    (c) Internal systems: remote <strong>MCP over Streamable HTTP + OAuth</strong> (shared across hosts; stateless, so it scales behind a load balancer and gateways can route on the <code>Mcp-Method</code>/<code>Mcp-Name</code> headers), with a tool allowlist per agent. Prefer CLI tools where developers already use them. Partner underwriter: <strong>A2A</strong>, since it's an opaque agent with long-running quote tasks, discovered via its Agent Card and authenticated with a scheme declared on the card. Don't ask them to expose MCP tools.<br>
+    (d) Turn on <strong>tool search</strong> with <code>defer_loading</code>, keeping 3–5 core tools loaded. Move procedures (claims handling, quote prep) into <strong>Agent Skills</strong>. For fan-out lookups and bulk data, use programmatic tool calling or code execution so intermediate data stays out of context. Measure tool-selection accuracy and time to first token before and after.</p>
+    <ul class="rubric">
+      <li>Removed write/payout tools from the general agent (not just logged them)</li>
+      <li>Identified token passthrough and the audience-bound fix</li>
+      <li>Replaced the shared admin account with per-user delegated, minimal scopes (fixes audit)</li>
+      <li>Treated inbound email as a prompt-injection vector, with an architectural control</li>
+      <li>A2A for the partner agent; MCP (HTTP + OAuth) for internal systems</li>
+      <li>Tool search / deferred loading and Skills to replace the monolithic context</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>5 · Go deeper</h2>
+
+<div class="callout source">
+<p><strong>Primary source (read this):</strong> MCP, <a href="https://modelcontextprotocol.io/docs/2026-07-28/tutorials/security/security_best_practices">"Security Best Practices" (2026-07-28)</a>. It covers confused deputy, token passthrough, SSRF (including against authorization servers that fetch Client ID Metadata Documents), state-handle hijacking, local server compromise, OAuth URL validation, mix-up attacks and scope minimisation, each with attack, risk and mitigation. That's most of the D3 security-gap vocabulary in one page. Then skim Anthropic's <a href="https://www.anthropic.com/engineering/writing-tools-for-agents">"Writing effective tools for agents"</a> for the tool-design half.</p>
+</div>
+
+<div class="callout ask">
+<p><strong>Ask your teacher.</strong> Anything unclear, or you disagree with an answer? Ask in the chat. If your Partner Academy notes use different terms, tell me and I'll map them to the current spec.</p>
+</div>
+
+<div id="scoreboard" class="scoreboard"></div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

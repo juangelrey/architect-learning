@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Architecture patterns cheat sheet</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<nav class="crumbs"><a href="../index.html">Course map</a> · From <a href="../lessons/0001-solution-design-patterns.html">Lesson 1</a></nav>
+<div class="kicker">Reference · D1</div>
+<h1>Architecture patterns</h1>
+<p class="subtitle">Simplest thing that works; add complexity only when it measurably pays. <span class="cite"><a href="https://www.anthropic.com/engineering/building-effective-agents">Building effective agents</a> (Dec 2024; pattern vocabulary still current, tooling section dated)</span></p>
+
+<h2>Building blocks</h2>
+<table><tbody>
+<tr><th>Augmented LLM</th><td>LLM + retrieval + tools + memory. The unit everything else is built from.</td></tr>
+<tr><th>Workflow</th><td>LLMs and tools orchestrated through predefined code paths. Predictable, cheap, testable.</td></tr>
+<tr><th>Agent</th><td>LLM dynamically directs its own process and tool use, in a loop on environment feedback. For unpredictable step counts. Costlier; compounding errors → sandbox, guardrails, stop conditions.</td></tr>
+</tbody></table>
+
+<h2>Pick the pattern</h2>
+<table>
+<thead><tr><th>Pattern</th><th>Use when</th><th>Example</th></tr></thead>
+<tbody>
+<tr><td>Prompt chaining</td><td>Fixed, decomposable steps; trade latency for accuracy; gates between steps</td><td>Outline → check → write</td></tr>
+<tr><td>Routing</td><td>Distinct categories; easy→small model, hard→big</td><td>Support triage</td></tr>
+<tr><td>Parallel · sectioning</td><td>Independent subtasks at once</td><td>Guardrail screen beside answer</td></tr>
+<tr><td>Parallel · voting</td><td>Same task N times for confidence</td><td>Vulnerability review</td></tr>
+<tr><td>Orchestrator-workers</td><td>Subtasks unknown until input seen</td><td>Multi-file code change; multi-source research</td></tr>
+<tr><td>Evaluator-optimizer</td><td>Clear criteria + iteration measurably helps</td><td>Literary translation</td></tr>
+<tr><td>Autonomous agent</td><td>Open-ended, trusted environment</td><td>Coding agent on SWE-bench</td></tr>
+</tbody></table>
+
+<h2>Where to build it</h2>
+<p class="cite"><a href="https://code.claude.com/docs/en/agent-sdk/overview">Agent SDK overview</a> · <a href="https://platform.claude.com/docs/en/managed-agents/overview">Managed Agents overview</a></p>
+<table>
+<thead><tr><th>Option</th><th>Use when</th></tr></thead>
+<tbody>
+<tr><td>Messages API / Client SDK</td><td>Custom loop, fine-grained control; you write the tool loop (or use the beta tool runner)</td></tr>
+<tr><td>Claude Agent SDK <small>(formerly Claude Code SDK)</small></td><td>Claude Code's loop, tools, hooks, subagents and permissions as a Python/TS library in a process you run</td></tr>
+<tr><td>Claude Managed Agents <small>(beta)</small></td><td>Anthropic-hosted harness + sandbox (cloud or self-hosted); long-running, async, scheduled. Not ZDR/HIPAA-BAA eligible (yet)</td></tr>
+<tr><td>Claude Code CLI</td><td>Interactive and one-off developer work</td></tr>
+</tbody></table>
+
+<h2>Multi-agent: when (current guidance, Jan 2026)</h2>
+<p class="cite"><a href="https://claude.com/blog/building-multi-agent-systems-when-and-how-to-use-them">When to use multi-agent systems</a></p>
+<ul>
+<li>Default: <strong>single agent</strong>; most teams don't need multi-agent. Cost ≈ <strong>3–10× tokens</strong> vs single agent.</li>
+<li><strong>Good fit (3 cases):</strong> context pollution degrading performance · parallelisable tasks · specialization improves tool selection or focus.</li>
+<li><strong>Poor fit:</strong> tightly coupled components, sequential phases of the same work, shared context, many inter-agent dependencies, most coding.</li>
+<li><strong>Decompose by context, not by problem phase.</strong> Planner → coder → tester = "telephone game"; one agent owns a feature + its tests.</li>
+<li><strong>Verification subagent</strong> works well; watch for "early victory" (marking pass without real testing).</li>
+</ul>
+
+<h2>Delegation &amp; orchestration</h2>
+<ul>
+<li><strong>Delegation spec:</strong> objective · output format · tools/sources guidance · clear boundaries. Scale effort to complexity (simple: 1 agent, 3–10 calls). <span class="cite"><a href="https://www.anthropic.com/engineering/multi-agent-research-system">Research system</a></span></li>
+<li>Subagents return condensed summaries (often 1,000–2,000 tokens) → lead context stays clean. <span class="cite"><a href="https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents">Context engineering</a></span></li>
+<li><strong>Managed Agents modes:</strong> subagents (delegate + follow up, one level deep) · dynamic workflows (agent writes a program running many agents in phases; default for most multi-agent work) · advisor (one worker consults a stronger model). Cap with a session budget. <span class="cite"><a href="https://platform.claude.com/docs/en/managed-agents/multiagent-orchestration">Multiagent orchestration</a></span></li>
+<li><strong>Long-running agents:</strong> initializer session · progress file + git · feature list, one feature at a time · end-to-end self-test. <span class="cite"><a href="https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents">Harnesses (Nov 2025)</a></span></li>
+</ul>
+
+<h2>Historical data point (June 2025, Claude 4 era)</h2>
+<p class="cite"><a href="https://www.anthropic.com/engineering/multi-agent-research-system">Multi-agent research system</a></p>
+<ul>
+<li>Opus 4 lead + Sonnet 4 subagents beat single-agent Opus 4 by 90.2% (internal research eval).</li>
+<li>Tokens vs <em>chat</em>: agent ≈ 4× · multi-agent ≈ 15×. Token use explained 80% of BrowseComp variance.</li>
+</ul>
+
+<h2>End-to-end checklist</h2>
+<ul>
+<li>Business outcome + metric first (pillar: efficiency, transformation, productivity, cost, performance SLA).</li>
+<li>Input → processing → output → <strong>feedback loop</strong> (human edits/outcomes → eval set → iteration).</li>
+<li>HITL before irreversible/high-impact actions.</li>
+</ul>
+</body>
+</html>

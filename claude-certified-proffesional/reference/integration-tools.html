@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Integration: tools, auth &amp; protocols cheat sheet</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<nav class="crumbs"><a href="../index.html">Course map</a> · From <a href="../lessons/0003-integration-tools-protocols.html">Lesson 3</a></nav>
+<div class="kicker">Reference · D3 (part 1)</div>
+<h1>Tools, auth &amp; integration protocols</h1>
+<p class="subtitle">Fewest tools, narrowest tokens, least context. Remove capability rather than monitor it. <span class="cite"><a href="../reference/blueprint.html">Blueprint heuristics</a></span></p>
+
+<div class="callout source">
+<p>Versions: MCP <strong>2026-07-28</strong> (current; stateless) · A2A <strong>v1.0</strong> · Claude API docs, October 2026. <span class="cite"><a href="https://modelcontextprotocol.io/specification/2026-07-28/changelog">MCP changelog</a> · <a href="https://a2a-protocol.org/latest/specification/">A2A spec</a></span></p>
+</div>
+
+<h2>Tool design (anti capability bloat)</h2>
+<p class="cite"><a href="https://www.anthropic.com/engineering/writing-tools-for-agents">Writing tools for agents</a> · <a href="https://platform.claude.com/docs/en/agents-and-tools/tool-use/define-tools">Define tools</a> · <a href="https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents">Context engineering</a></p>
+<ul>
+<li><strong>Minimal viable set.</strong> If a human can't say which tool to use, the agent can't either. Least privilege = <em>remove</em> unneeded tools.</li>
+<li><strong>Consolidate</strong> workflows: <code>schedule_event</code> instead of list_users + list_events + create_event; <code>search_logs</code> instead of <code>read_logs</code>; one tool with an <code>action</code> parameter.</li>
+<li><strong>Namespace</strong>: <code>asana_search</code>, <code>jira_search</code>, <code>github_list_prs</code>. Matters even more with tool search.</li>
+<li><strong>Descriptions</strong> are "by far the most important factor". At least 3–4 sentences: what, when (and when not), parameters, limits. Unambiguous parameter names (<code>user_id</code>).</li>
+<li><strong>Responses</strong>: high-signal fields and meaningful identifiers, not opaque internal references. <code>response_format</code> concise/detailed (concise ≈ ⅓ the tokens). Paginate, filter, truncate. Claude Code caps tool output at 25k tokens by default. Errors should say how to fix the call.</li>
+<li><code>input_examples</code> for complex inputs (72% → 90% accuracy on complex parameters); ~20–200 tokens each. <span class="cite"><a href="https://www.anthropic.com/engineering/advanced-tool-use">Advanced tool use</a> · <a href="https://platform.claude.com/docs/en/agents-and-tools/tool-use/define-tools">Define tools</a></span></li>
+</ul>
+
+<h2>MCP authorization essentials</h2>
+<p class="cite"><a href="https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization">Authorization</a> · <a href="https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization/client-registration">Client registration</a> · <a href="https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization/security-considerations">Security considerations</a></p>
+<table><tbody>
+<tr><th>Scope</th><td>Optional; for HTTP transports. stdio servers get credentials from the environment.</td></tr>
+<tr><th>Roles</th><td>MCP server = OAuth 2.1 <em>resource server</em>; MCP client = OAuth client; separate authorization server.</td></tr>
+<tr><th>Discovery</th><td>401 + <code>WWW-Authenticate</code> (with <code>resource_metadata</code> and ideally <code>scope</code>) → Protected Resource Metadata (RFC 9728) → authorization server metadata (RFC 8414 / OIDC).</td></tr>
+<tr><th>Registration order</th><td>1 pre-registration · 2 <strong>Client ID Metadata Document</strong> (HTTPS URL as <code>client_id</code>; AS fetches the JSON and validates <code>redirect_uris</code>) · 3 Dynamic Client Registration as fallback (deprecated in 2026-07-28) · 4 ask the user.</td></tr>
+<tr><th>Client MUSTs</th><td>PKCE (S256) · <code>resource</code> parameter (RFC 8707) = server's canonical URI · validate <code>iss</code> against the recorded issuer (RFC 9207) · <code>Authorization: Bearer</code> on every request, never in the query string.</td></tr>
+<tr><th>Scopes</th><td>Request the challenge's <code>scope</code> first, else <code>scopes_supported</code> (kept minimal). Step up on 403 <code>insufficient_scope</code>, unioning with scopes already held.</td></tr>
+<tr><th>Server MUSTs</th><td>Validate the audience (token issued for <em>this</em> server) · 401 invalid/expired · 403 insufficient scope · <strong>never accept or forward other tokens</strong>.</td></tr>
+<tr><th>Tokens</th><td>Short-lived access tokens (SHOULD); refresh-token rotation for public clients (MUST); secure storage.</td></tr>
+</tbody></table>
+
+<h2>Security gap → fix</h2>
+<p class="cite"><a href="https://modelcontextprotocol.io/docs/2026-07-28/tutorials/security/security_best_practices">Security best practices (2026-07-28)</a></p>
+<table>
+<thead><tr><th>Gap</th><th>Fix</th></tr></thead>
+<tbody>
+<tr><td>Token passthrough (server forwards the client's token downstream)</td><td>Accept only tokens issued to the server; get a <em>separate</em> upstream token</td></tr>
+<tr><td>Token replay across servers</td><td>Client sends <code>resource</code>; server checks audience</td></tr>
+<tr><td>Confused deputy (proxy + static client ID + dynamic registration + consent cookie)</td><td>Per-client consent at the proxy before forwarding; exact redirect-URI match; single-use <code>state</code></td></tr>
+<tr><td>State-handle hijacking (formerly session hijacking)</td><td>Never treat a handle as authentication; random, expiring handles bound to the user ID from the verified token</td></tr>
+<tr><td>Mix-up attack</td><td>Validate <code>iss</code> (RFC 9207) before redeeming the code; PKCE alone doesn't stop it</td></tr>
+<tr><td>SSRF via OAuth discovery URLs (or CIMD fetches at the AS)</td><td>HTTPS only; block private/link-local IP ranges; validate redirects; egress proxy</td></tr>
+<tr><td>Malicious authorization URL (<code>javascript:</code>, shell injection)</td><td>Allow only <code>https</code> (or loopback <code>http</code>); never open URLs through a shell</td></tr>
+<tr><td>Omnibus scopes (<code>admin:*</code>)</td><td>Minimal baseline scopes + step-up via 403 <code>insufficient_scope</code></td></tr>
+<tr><td>Shared service account for user actions</td><td>User-delegated OAuth; <code>client_credentials</code> only for the system's own work; restores per-user audit</td></tr>
+<tr><td>Secrets reachable by the agent</td><td>Keep credentials out of the sandbox; per-session scoped, revocable tokens <span class="cite"><a href="https://www.anthropic.com/engineering/how-we-contain-claude">How we contain Claude</a></span></td></tr>
+<tr><td>Prompt injection via tool results</td><td>Granular tool permissions; egress controls; sub-agent returns structured facts; treat tool descriptions as untrusted; consent before tool calls <span class="cite"><a href="https://www.anthropic.com/engineering/how-we-contain-claude">Containment</a> · <a href="https://modelcontextprotocol.io/specification/2026-07-28">MCP overview</a></span></td></tr>
+<tr><td>Local server compromise / DNS rebinding</td><td>Show the exact command and get consent; sandbox; validate <code>Origin</code>; bind to 127.0.0.1 <span class="cite"><a href="https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http">Streamable HTTP</a></span></td></tr>
+<tr><td>Tampered <code>requestState</code> (MRTR)</td><td>Treat as attacker-controlled; HMAC/AEAD-protect it; bind to principal, expiry and request <span class="cite"><a href="https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/mrtr">MRTR</a></span></td></tr>
+</tbody></table>
+
+<h2>MCP in one table</h2>
+<p class="cite"><a href="https://modelcontextprotocol.io/specification/2026-07-28">Overview</a> · <a href="https://modelcontextprotocol.io/specification/2026-07-28/server">Server features</a> · <a href="https://modelcontextprotocol.io/specification/2026-07-28/basic/transports">Transports</a> · <a href="https://modelcontextprotocol.io/specification/2026-07-28/changelog">Changelog</a></p>
+<table><tbody>
+<tr><th>Roles</th><td>Host (LLM app) · client (connector inside the host) · server. JSON-RPC 2.0.</td></tr>
+<tr><th>Prompts</th><td>User-controlled templates (slash commands, menus).</td></tr>
+<tr><th>Resources</th><td>Application-controlled context (file contents, git history).</td></tr>
+<tr><th>Tools</th><td>Model-controlled functions (API POSTs, file writes).</td></tr>
+<tr><th>Client feature</th><td>Elicitation (ask the user). Sampling, Roots, Logging deprecated → call the LLM API directly; pass paths as tool parameters; log to stderr / OpenTelemetry.</td></tr>
+<tr><th>Stateless</th><td>Version + capabilities in each request's <code>_meta</code>; <code>server/discover</code> for capabilities; cross-call state via explicit handles as tool arguments. (Formerly <code>initialize</code> + <code>Mcp-Session-Id</code>.)</td></tr>
+<tr><th>MRTR</th><td>Server needs input → returns <code>input_required</code> with <code>inputRequests</code> (+ <code>requestState</code>); client retries with <code>inputResponses</code>. No server-initiated requests.</td></tr>
+<tr><th>stdio</th><td>Client-launched local subprocess; newline-delimited JSON-RPC.</td></tr>
+<tr><th>Streamable HTTP</th><td>One POST endpoint; JSON or request-scoped SSE reply; headers <code>MCP-Protocol-Version</code>, <code>Mcp-Method</code>, <code>Mcp-Name</code> mirror the body for gateways; <code>subscriptions/listen</code> for change notifications. HTTP+SSE (2024-11-05) deprecated.</td></tr>
+<tr><th>Extensions</th><td>Tasks (long-running work, polling) · MCP Apps (inline UI) · Skills over MCP.</td></tr>
+</tbody></table>
+
+<h2>Pick the integration mechanism</h2>
+<table>
+<thead><tr><th>Mechanism</th><th>Use when</th></tr></thead>
+<tbody>
+<tr><td>Direct tool use (Messages API tools)</td><td>A few app-owned tools; you run the loop</td></tr>
+<tr><td>MCP stdio</td><td>Local capability for one user's client</td></tr>
+<tr><td>MCP Streamable HTTP + OAuth</td><td>Shared remote integration reused across hosts and agents; stateless, so it scales across replicas without sticky sessions</td></tr>
+<tr><td>MCP connector (<code>mcp_servers</code>, beta)</td><td>Remote MCP tools from the API with no client code. <strong>Tools only</strong>; public HTTP servers only (no stdio); you supply <code>authorization_token</code>; allowlist/denylist and <code>defer_loading</code> via <code>mcp_toolset</code>; not callable programmatically <span class="cite"><a href="https://platform.claude.com/docs/en/agents-and-tools/mcp-connector">MCP connector</a></span></td></tr>
+<tr><td>CLI (<code>gh</code>, <code>aws</code>)</td><td>Coding agent with a shell; more context-efficient than MCP (no per-tool listing), even though Claude Code defers MCP tool definitions by default <span class="cite"><a href="https://code.claude.com/docs/en/costs">Claude Code costs</a></span></td></tr>
+<tr><td>A2A</td><td>Opaque agent owned by another team or company; long-running tasks (states incl. input-/auth-required, artifacts, streaming, push). Agent Card at <code>/.well-known/agent-card.json</code> declares <code>securitySchemes</code>. Bindings: JSON-RPC, gRPC, HTTP+JSON. "MCP is vertical … A2A is horizontal." <span class="cite"><a href="https://a2a-protocol.org/latest/specification/">A2A spec</a> · <a href="https://a2a-protocol.org/latest/topics/agent-discovery/">Discovery</a> · <a href="https://a2a-protocol.org/latest/topics/a2a-and-mcp/">A2A &amp; MCP</a></span></td></tr>
+</tbody></table>
+
+<h2>Progressive discovery</h2>
+<ul>
+<li><strong>Principle:</strong> smallest set of high-signal tokens; just-in-time loading via identifiers (paths, queries, links); a hybrid of a little up front plus the rest on demand. <span class="cite"><a href="https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents">Context engineering</a></span></li>
+<li><strong>Agent Skills:</strong> L1 name + description (~100 tokens per skill, always loaded) → L2 SKILL.md (under 5k tokens, on trigger) → L3 files/scripts (no cost until accessed; script code never enters context). Name ≤ 64 chars, description ≤ 1024 chars and must say <em>what + when</em>. API: runs in the code-execution container, no network. Trusted sources only; audit like software. <span class="cite"><a href="https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview">Agent Skills</a></span></li>
+<li><strong>Tool search tool:</strong> regex or BM25; <code>defer_loading: true</code>; returns up to 5 matches by default (Claude can raise <code>limit</code>); up to 10k deferred tools; keep 3–5 most-used tools loaded; preserves the prompt cache; custom search via <code>tool_reference</code>. Use at 10+ tools or more than 10k tokens of definitions; accuracy degrades past 30–50 tools; ~55k → over 85% less. <span class="cite"><a href="https://platform.claude.com/docs/en/agents-and-tools/tool-use/tool-search-tool">Tool search tool</a></span></li>
+<li><strong>Code execution with MCP:</strong> tools as files; filter data in code; PII tokenisation; 150k → 2k tokens (98.7%). Cost: you need a sandbox. <span class="cite"><a href="https://www.anthropic.com/engineering/code-execution-with-mcp">Code execution with MCP</a></span></li>
+<li><strong>Programmatic tool calling (GA):</strong> <code>allowed_callers</code> on tools; results stay out of context; ~38% fewer input tokens (75-tool benchmark), 20–40% typical at 10–49 tools; no gain for strictly sequential calls; not a security boundary. <span class="cite"><a href="https://platform.claude.com/docs/en/agents-and-tools/tool-use/programmatic-tool-calling">Programmatic tool calling</a></span></li>
+</ul>
+</body>
+</html>

@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>D3 · II: RAG, retrieval, latency &amp; observability</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-lesson="0004-integration-rag-observability">
+
+<nav class="crumbs"><a href="../index.html">Course map</a> · <a href="../reference/blueprint.html">Exam blueprint</a> · <a href="../reference/rag-observability.html">RAG &amp; observability cheat sheet</a> · Prev: <a href="0003-integration-tools-protocols.html">D3 · I</a> · Next: <a href="0005-evaluation-testing.html">D4</a></nav>
+
+<div class="kicker">Lesson 4 · Domain 3 (part 2) · 19% of the exam</div>
+<h1>D3 · II: RAG, retrieval, latency &amp; observability</h1>
+<p class="subtitle">Match retrieval to the shape of the data, pay for latency only where users feel it, and make every agent step visible without leaking what users said.</p>
+
+<div class="meta">
+  <span>≈ 18 minutes</span>
+  <span>3 review + 1 recall + 13 questions + 1 scenario</span>
+  <span><span class="tag d3">D3</span></span>
+</div>
+
+<div class="callout source">
+<p><strong>What the blueprint asks.</strong> Four D3 task statements: RAG pipeline chunking and indexing; retrieval strategies matched to data shape and query pattern; accuracy–latency trade-offs; observability and monitoring at scale. <span class="cite"><a href="../sources/ccar-p-exam-guide.pdf">Exam guide §6, D3</a>.</span> An official sample item has a RAG system degrade after a document refresh: the heuristic is <em>diagnose what changed</em> (retrieval/indexing) before blaming the model. <span class="cite"><a href="../reference/blueprint.html">Blueprint: answer heuristics</a>.</span></p>
+</div>
+
+<!-- ============================================================ -->
+<h2>0 · Spaced review</h2>
+
+<div class="q" data-topic="d1" data-answer="0">
+  <p class="stem">An internal bot answers employee questions from a fixed set of 40 policy documents: retrieve relevant passages, then answer. A stakeholder asks for "a multi-agent system so it feels smarter". What do you recommend?</p>
+  <ol class="options">
+    <li>A single augmented-LLM call with retrieval, measured against your evals</li>
+    <li>An orchestrator with one research subagent assigned to each document</li>
+    <li>An autonomous agent loop with a generous maximum iteration cap</li>
+    <li>A voting ensemble that answers every question three separate times</li>
+  </ol>
+  <div class="explain">Start with the simplest solution; a single augmented-LLM call with retrieval is often enough. Multi-agent used ~15× chat tokens in Anthropic's research system (June 2025, Opus 4 lead + Sonnet 4 subagents) and suits breadth-first, parallelisable work, not a fixed retrieve-then-answer flow. <span class="cite"><a href="https://www.anthropic.com/engineering/building-effective-agents">Building effective agents</a>; <a href="https://www.anthropic.com/engineering/multi-agent-research-system">Multi-agent research system</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d2" data-answer="0">
+  <p class="stem">A RAG assistant sends tool definitions, a 6k-token static system prompt, then retrieved chunks and the question. Prompt caching is on, yet <code>cache_read_input_tokens</code> is always 0. The system prompt begins with the current timestamp. Best fix?</p>
+  <ol class="options">
+    <li>Move the timestamp after the static content, then cache it</li>
+    <li>Switch the 5-minute cache lifetime to the 1-hour cache lifetime</li>
+    <li>Shorten the system prompt below the minimum cacheable token length</li>
+    <li>Add more cache breakpoints so every block gets cached separately</li>
+  </ol>
+  <div class="explain">The cache is a <strong>prefix</strong> in the order tools → system → messages; a change at one level invalidates that level and everything after it. A timestamp at the top changes every request, so nothing ever matches. Static first, dynamic last. A longer TTL or more breakpoints can't help a prefix that never repeats. <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/prompt-caching">Prompt caching</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d3" data-answer="0">
+  <p class="stem">An HR-policy Q&amp;A agent has four tools: <code>search_policies</code>, <code>read_policy</code>, <code>update_employee_record</code>, <code>send_email</code>. It only ever needs to answer questions. A security review flags the design. Best response?</p>
+  <ol class="options">
+    <li>Remove the record-update and email tools from this agent entirely</li>
+    <li>Keep all four tools but log every call for auditing</li>
+    <li>Keep all four tools but require user confirmation before writes</li>
+    <li>Keep all four tools; add a prompt warning against writes</li>
+  </ol>
+  <div class="explain"><strong>Remove, don't monitor.</strong> Least privilege means dropping tools the job doesn't need. Logging or confirmations still leave the capability exposed to prompt injection or error. Fewer, purpose-built tools also help the agent pick correctly. <span class="cite"><a href="../reference/blueprint.html">Blueprint heuristics</a>; <a href="https://www.anthropic.com/engineering/writing-tools-for-agents">Writing tools for agents</a>.</span></div>
+</div>
+
+<!-- ============================================================ -->
+<h2>1 · Recall first</h2>
+
+<div class="recall" data-topic="d3" data-title="RAG &amp; latency recall">
+  <p class="prompt">Without looking: (a) What does <em>Contextual Retrieval</em> do to each chunk, and roughly how much did it cut top-20 retrieval failures (embeddings only / + BM25 / + reranking)? (b) Below what corpus size does Anthropic say you can skip RAG entirely? (c) Name four levers that cut latency. (d) By default, should an OpenTelemetry GenAI instrumentation record prompts and completions?</p>
+  <textarea placeholder="(a) …&#10;(b) …&#10;(c) …&#10;(d) …"></textarea>
+  <div class="model">
+    <p>(a) An LLM writes 50–100 tokens of chunk-specific context (from the whole document) and prepends it to the chunk <em>before</em> embedding and BM25 indexing. Failure rate 5.7% → 3.7% (−35%) with contextual embeddings; → 2.9% (−49%) adding contextual BM25; → 1.9% (−67%) adding reranking.<br>
+    (b) Under ~200k tokens (~500 pages): put the whole knowledge base in the prompt, with prompt caching.<br>
+    (c) Smaller/faster model (Haiku 5.5) or lower <code>effort</code>; fewer input and output tokens (concise prompt, <code>max_tokens</code>); streaming (better perceived TTFT); prompt caching of the static prefix; parallel tool calls; fewer reranked candidates; fast mode for output speed on Opus (research preview).<br>
+    (d) No. Content capture SHOULD be off by default and opt-in; in production, store content externally with separate access controls and record references on spans.</p>
+    <ul class="rubric">
+      <li>Context prepended before <em>both</em> embedding and BM25</li>
+      <li>35 / 49 / 67% (or 5.7 → 3.7 → 2.9 → 1.9%)</li>
+      <li>~200k tokens → whole corpus in prompt + caching</li>
+      <li>At least four valid latency levers including streaming and caching</li>
+      <li>Content capture off by default / opt-in</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>2 · The ideas that matter</h2>
+
+<h3>Chunking &amp; indexing</h3>
+
+<p><strong>Chunks lose context.</strong> "The company's revenue grew by 3% over the previous quarter" says neither which company nor when. Chunks are usually no more than a few hundred tokens; chunk size, boundary and overlap all affect retrieval, so treat them as tunables and <em>run evals</em>. <span class="cite"><a href="https://www.anthropic.com/news/contextual-retrieval">Contextual Retrieval</a>.</span> Split on document structure (headings, sections, whole table rows) rather than blind character counts, and keep metadata (source, section, date, product) next to each chunk for filtering and citations. <span class="cite">Architect practice; the article only says "consider how you split your documents into chunks".</span></p>
+
+<p><strong>Contextual Retrieval.</strong> Claude reads the whole document plus one chunk and writes 50–100 tokens of situating context, which is prepended to the chunk before <em>both</em> embedding (contextual embeddings) and BM25 indexing (contextual BM25). With prompt caching the one-off cost was ~$1.02 per million document tokens. Top-20 retrieval failure fell 5.7% → 3.7% (−35%) with contextual embeddings, → 2.9% (−49%) adding contextual BM25, → 1.9% (−67%) adding a reranker. Best tested setup: retrieve top 150, rerank, pass top 20 (20 beat 5 and 10). These are the post's Sept 2024 figures; it is still Anthropic's main retrieval write-up. <span class="cite"><a href="https://www.anthropic.com/news/contextual-retrieval">Contextual Retrieval</a>.</span> Alternative: <em>contextualized chunk embedding</em> models (<code>voyage-context-4</code>) embed each chunk with full document context "without manual metadata augmentation", with no LLM step per chunk. Voyage reports its earlier <code>voyage-context-3</code> beat Contextual Retrieval by 6.76% (vendor benchmark). <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/embeddings">Embeddings guide</a>; <a href="https://blog.voyageai.com/2026/06/29/voyage-context-4/">voyage-context-4 blog</a>.</span></p>
+
+<p><strong>Embeddings: Anthropic doesn't make them.</strong> The docs point to Voyage AI (by MongoDB) but say to assess several vendors. Current Voyage picks: <code>voyage-4-large</code> / <code>voyage-4</code> / <code>voyage-4-lite</code> (quality → cost), <code>voyage-code-4</code>, <code>voyage-law-2</code>, <code>voyage-finance-2</code>, <code>voyage-multimodal-3.5</code> (text, images, video), <code>voyage-context-4</code>; rerankers <code>rerank-3</code> and <code>rerank-3-lite</code> (latency/cost). Always set <code>input_type</code> to <code>query</code> or <code>document</code>. <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/embeddings">Embeddings guide</a>.</span> Rerank 3 (Sept 2026) upgrades in place: no re-indexing, and scores are calibrated so Rerank 2.5 thresholds still work. <span class="cite"><a href="https://blog.voyageai.com/2026/09/30/rerank-3/">Rerank 3 blog</a>.</span> <strong>Consistency:</strong> queries must be embedded in the same vector space as the index. The four general Voyage 4 models (large, base, lite, nano) share one space, so you can change the query model "without re-vectorizing documents"; any other model change (including to <code>voyage-code-4</code> or <code>voyage-context-4</code>, which that claim doesn't cover) means re-embedding the corpus. <span class="cite"><a href="https://blog.voyageai.com/2026/01/15/voyage-4/">Voyage 4 blog</a>.</span> After any content refresh, check that new documents went through the <em>same</em> chunker, contextualizer and embedding model as the rest.</p>
+
+<h3>Retrieval strategy by data shape</h3>
+
+<table>
+<thead><tr><th>Data shape / query pattern</th><th>Strategy</th><th>Why</th></tr></thead>
+<tbody>
+<tr><td>Small corpus (&lt; ~200k tokens, ~500 pages)</td><td>No RAG: whole corpus in prompt + prompt caching</td><td>Simplest; caching cuts latency &gt;2× and cost up to 90% (article figures) <span class="cite"><a href="https://www.anthropic.com/news/contextual-retrieval">CR</a></span></td></tr>
+<tr><td>Paraphrased, conceptual questions</td><td>Semantic (embeddings)</td><td>Matches meaning, not words</td></tr>
+<tr><td>Exact identifiers: error codes, SKUs, names</td><td>Lexical BM25, usually <strong>hybrid</strong> with embeddings + rank fusion</td><td>"Error code TS-999": embeddings find error codes in general and miss the exact match <span class="cite"><a href="https://www.anthropic.com/news/contextual-retrieval">CR</a></span></td></tr>
+<tr><td>Precision-critical top results</td><td>Add a reranker over a wider candidate set</td><td>Best accuracy; adds latency and cost per query <span class="cite"><a href="https://www.anthropic.com/news/contextual-retrieval">CR</a></span></td></tr>
+<tr><td>Tables, metrics, aggregations ("total refunds in Q3")</td><td>Query tool (SQL/API) over the system of record</td><td>Embeddings retrieve similar text; they don't sum, filter or join <span class="cite">Architect practice</span></td></tr>
+<tr><td>Fast-changing or navigable corpora (code repos, file trees)</td><td>Agentic, <strong>just-in-time</strong> search (glob, grep, read), often hybrid with some data loaded up front</td><td>Keeps lightweight identifiers, loads data at runtime; bypasses stale indexes but slower than pre-computed retrieval <span class="cite"><a href="https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents">Context engineering</a></span></td></tr>
+<tr><td>Current public web information</td><td>Server-side <strong>web search</strong> tool (<code>web_search_20260318</code>) / web fetch tool</td><td>Anthropic runs the search; citations always on; dynamic filtering trims results before they enter context; $10 per 1,000 searches + tokens <span class="cite"><a href="https://platform.claude.com/docs/en/agents-and-tools/tool-use/web-search-tool">Web search</a>; <a href="https://platform.claude.com/docs/en/agents-and-tools/tool-use/web-fetch-tool">Web fetch</a></span></td></tr>
+</tbody>
+</table>
+
+<p><strong>Putting retrieved text in the prompt.</strong> For 20k+ token inputs, place long documents at the top, above the query and instructions (queries at the end improved quality by up to 30% in Anthropic's tests); wrap each in <code>&lt;document&gt;</code> tags with <code>&lt;source&gt;</code> metadata; for long-document tasks ask Claude to quote relevant parts first. <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices">Prompting best practices: long context</a>.</span></p>
+
+<p><strong>Citations.</strong> All active models support it. Pass chunks as <code>document</code> blocks (plain text/PDF auto-chunked into sentences; custom content used as-is; inline or by Files API <code>file_id</code>) or as <code>search_result</code> blocks (from a tool result or top-level) with citations enabled. Pointers are guaranteed valid, citation quality beat prompt-based quoting in Anthropic's evals, and <code>cited_text</code> doesn't count toward output tokens. Works with prompt caching and batch; <strong>incompatible with structured outputs</strong> (400 error). <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/citations">Citations</a>; <a href="https://platform.claude.com/docs/en/build-with-claude/search-results">Search results</a>.</span></p>
+
+<h3>Accuracy–latency trade-offs</h3>
+
+<p>Engineer for quality first, then reduce latency; optimizing too early hides what top performance looks like. Measure <strong>TTFT</strong> (time to first token, what streaming users feel) separately from total latency. <span class="cite"><a href="https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/reduce-latency">Reducing latency</a>.</span></p>
+
+<table>
+<thead><tr><th>Lever</th><th>Effect</th><th>Cost / risk</th></tr></thead>
+<tbody>
+<tr><td>Faster tier (Haiku 5.5, e.g. at <code>effort: low</code>) or lower <code>effort</code></td><td>Lower latency and price</td><td>May lose accuracy on hard queries; route instead of downgrading everything <span class="cite"><a href="https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/reduce-latency">Latency</a></span></td></tr>
+<tr><td>Fewer tokens in/out; <code>max_tokens</code></td><td>Faster</td><td><code>max_tokens</code> truncates mid-sentence <span class="cite"><a href="https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/reduce-latency">Latency</a></span></td></tr>
+<tr><td>Streaming</td><td>Perceived responsiveness (TTFT)</td><td>Total time unchanged <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/streaming">Streaming</a></span></td></tr>
+<tr><td>Fast mode (<code>speed: "fast"</code>, research preview)</td><td>Up to 2.5× output tokens/s on Opus 5.5, Opus 5, Opus 4.8</td><td>Premium price; no TTFT gain; no Batch; switching speed misses the cache <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/fast-mode">Fast mode</a></span></td></tr>
+<tr><td>Prompt caching</td><td>Better TTFT on long prefixes; reads 0.1× base input (0.05× Opus/Sonnet 5.5, 0.025× Fable 5.1)</td><td>Writes 1.25× (5 min) or 2× (1 h); prefix must be stable; min 512 tokens on current models; pre-warm with <code>max_tokens: 0</code> <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/prompt-caching">Caching</a></span></td></tr>
+<tr><td>Parallel tool calls</td><td>Anthropic cut research time up to 90% for complex queries (June 2025 research system)</td><td>Run only independent, read-only calls concurrently <span class="cite"><a href="https://www.anthropic.com/engineering/multi-agent-research-system">Research system</a>; <a href="https://platform.claude.com/docs/en/agents-and-tools/tool-use/parallel-tool-use">Parallel tool use</a></span></td></tr>
+<tr><td>Top-k / reranker candidates</td><td>More chunks → higher recall</td><td>More latency, tokens and cost: tune with evals <span class="cite"><a href="https://www.anthropic.com/news/contextual-retrieval">CR</a></span></td></tr>
+<tr><td>Message Batches API</td><td>50% cheaper; most batches &lt; 1 h, max 24 h</td><td>Not interactive; stacks with caching (use 1-h TTL; hits best-effort) <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/batch-processing">Batch</a></span></td></tr>
+</tbody>
+</table>
+
+<h3>Observability at scale</h3>
+
+<p><strong>Why it's hard.</strong> "Agents make dynamic decisions and are non-deterministic between runs, even with identical prompts", and they are stateful, so errors compound. Anthropic added full production tracing to diagnose failures, built resume-from-failure, and used <strong>rainbow deployments</strong> so updates don't break agents mid-run. They monitored "agent decision patterns and interaction structures" <em>without</em> monitoring individual conversation contents. <span class="cite"><a href="https://www.anthropic.com/engineering/multi-agent-research-system">Multi-agent research system</a> (June 2025).</span></p>
+
+<p><strong>OpenTelemetry GenAI conventions</strong> (status: <em>Development</em>; maintained in the <code>semantic-conventions-genai</code> repo) define spans for inference, <code>embeddings</code>, <code>retrieval</code>, memory operations, <code>invoke_agent</code> and <code>execute_tool</code>. Metrics include <code>gen_ai.client.inference.duration</code>, <code>gen_ai.client.inference.time_to_first_chunk</code> (client-side TTFT), <code>gen_ai.server.time_to_first_token</code>, <code>gen_ai.execute_tool.duration</code> and token counters <code>gen_ai.client.inference.usage.*</code> (input, output, <code>cache_read</code>, <code>cache_write</code>, reasoning). <code>gen_ai.client.operation.duration</code> remains for non-inference operations. Prompts and outputs are sensitive and large: instrumentations SHOULD NOT capture them by default (opt-in); production pattern = store content externally with separate access controls and put references on spans. <span class="cite"><a href="https://github.com/open-telemetry/semantic-conventions-genai/blob/main/docs/gen-ai/gen-ai-spans.md">GenAI spans</a>; <a href="https://github.com/open-telemetry/semantic-conventions-genai/blob/main/docs/gen-ai/client-inference.md">Client inference</a>; <a href="https://github.com/open-telemetry/semantic-conventions-genai/blob/main/docs/gen-ai/gen-ai-metrics.md">GenAI metrics</a>; <a href="https://github.com/open-telemetry/semantic-conventions-genai/blob/main/docs/gen-ai/gen-ai-token-metrics.md">Token metrics</a>; <a href="https://github.com/open-telemetry/semantic-conventions-genai/blob/main/docs/gen-ai/gen-ai-agent-spans.md">Agent spans</a>.</span></p>
+
+<p><strong>Fleet-level usage and cost.</strong> The <strong>Usage &amp; Cost Admin API</strong> (Admin key; not workspace keys) reports tokens (uncached, cached, cache creation, output) and server-tool use via <code>/v1/organizations/usage_report/messages</code>, grouped by model, workspace, API key, service tier and more, in 1-minute to 1-day buckets; <code>/v1/organizations/cost_report</code> gives daily USD by workspace or description. Data typically lands within 5 minutes. Datadog, Grafana Cloud, Honeycomb and others offer ready-made integrations; Claude Code per-user costs come from the Claude Code Analytics API. <span class="cite"><a href="https://platform.claude.com/docs/en/manage-claude/usage-cost-api">Usage and Cost API</a>.</span></p>
+
+<p><strong>What to watch.</strong> Latency p50/p95 and TTFT; input/output/cache tokens and cost per request; error rate and tool-failure rate (tool results with <code>is_error</code>); retrieval quality (hit rate on a labelled set) and drift in query mix or answer quality over time, sampled with LLM-as-judge plus human review. <span class="cite"><a href="https://platform.claude.com/docs/en/agents-and-tools/tool-use/parallel-tool-use">is_error</a>; <a href="https://www.anthropic.com/engineering/multi-agent-research-system">LLM-as-judge</a>; drift and p95 are standard SRE practice, not from an Anthropic source.</span></p>
+
+<!-- ============================================================ -->
+<h2>3 · Practice</h2>
+
+<div class="q" data-topic="d3" data-answer="0">
+  <p class="stem">A financial-filings RAG system retrieves chunks like "Revenue grew 3% over the previous quarter" for questions about the wrong company. Chunking is otherwise sensible. Which change targets the root cause most directly?</p>
+  <ol class="options">
+    <li>Prepend LLM-generated document context to each chunk before indexing it</li>
+    <li>Switch the answering model to the most capable available tier</li>
+    <li>Increase retrieved chunks per query from twenty to one hundred</li>
+    <li>Instruct the model in the prompt to ignore irrelevant chunks</li>
+  </ol>
+  <div class="explain">The chunk lacks <em>which company and when</em>. <strong>Contextual Retrieval</strong> prepends 50–100 tokens of situating context before embedding and BM25 indexing, cutting retrieval failures 35–49% (67% with reranking). A bigger model or prompt can't fix chunks that were never retrieved correctly; more chunks adds noise and cost. <span class="cite"><a href="https://www.anthropic.com/news/contextual-retrieval">Contextual Retrieval</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d3" data-answer="0">
+  <p class="stem">Support engineers search a knowledge base with queries like "E-4471 after firmware 2.3". Pure embedding search returns articles about error codes in general but often misses the exact code. Best fix?</p>
+  <ol class="options">
+    <li>Combine BM25 lexical retrieval with embedding search using rank fusion</li>
+    <li>Replace the embedding model with a larger general-purpose embedding model</li>
+    <li>Lower the similarity threshold so more embedding results are returned</li>
+    <li>Fine-tune the answering model on all historical support ticket transcripts</li>
+  </ol>
+  <div class="explain">Exact identifiers are a <strong>lexical</strong> problem. Anthropic's example: "Error code TS-999" where embeddings miss the exact match. <strong>Hybrid</strong> = BM25 + embeddings, combined and deduplicated with rank fusion. A larger embedding model is still semantic; a lower threshold adds noise. <span class="cite"><a href="https://www.anthropic.com/news/contextual-retrieval">Contextual Retrieval</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d3" data-answer="0">
+  <p class="stem">A startup wants a vector database for its 120-page employee handbook (≈ 60k tokens), queried a few hundred times a day. What do you recommend?</p>
+  <ol class="options">
+    <li>Put the whole handbook in the prompt with prompt caching</li>
+    <li>Build hybrid retrieval with contextual embeddings and a reranker stage</li>
+    <li>Fine-tune a small model on the handbook, skipping retrieval entirely</li>
+    <li>Use an agent that greps the handbook for every question</li>
+  </ol>
+  <div class="explain">Anthropic: under ~200k tokens (~500 pages), include the whole knowledge base in the prompt; caching makes repeat calls faster and cheaper. RAG infrastructure here is complexity without benefit. <span class="cite"><a href="https://www.anthropic.com/news/contextual-retrieval">Contextual Retrieval</a>; <a href="https://platform.claude.com/docs/en/build-with-claude/prompt-caching">Prompt caching</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d3" data-answer="0">
+  <p class="stem">Managers ask a sales assistant questions like "What were total refunds for the EMEA region last quarter versus the prior one?" Order data lives in a Postgres warehouse. The team embedded every order row into a vector store and answers are wrong. Best redesign?</p>
+  <ol class="options">
+    <li>Give Claude a read-only query tool over the warehouse tables</li>
+    <li>Re-chunk the order rows into larger batches before embedding them</li>
+    <li>Add a reranker so the most relevant rows rank first</li>
+    <li>Switch to a domain-specific finance embedding model for the rows</li>
+  </ol>
+  <div class="explain">Aggregation over structured data is a <strong>data-shape</strong> mismatch: similarity search returns <em>similar</em> rows, it can't sum, filter by period or compare. A scoped, read-only SQL/API tool computes the exact answer (keep it least-privilege). Every other option tunes the wrong mechanism. <span class="cite"><a href="../sources/ccar-p-exam-guide.pdf">Exam guide D3: retrieval matched to data shape</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d3" data-answer="0">
+  <p class="stem">A coding agent answers questions about a monorepo that receives hundreds of commits a day. A nightly embedding index is often stale by noon. Which retrieval approach fits best?</p>
+  <ol class="options">
+    <li>Use just-in-time agentic search with glob, grep and file-read tools</li>
+    <li>Re-embed the full repository every hour on a fixed schedule</li>
+    <li>Load the entire monorepo into context for every single question</li>
+    <li>Keep the nightly index and warn users answers may lag</li>
+  </ol>
+  <div class="explain">Claude Code keeps lightweight identifiers and retrieves files <strong>just in time</strong> with glob and grep, "effectively bypassing the issues of stale indexing". Trade-off: runtime exploration is slower than pre-computed retrieval. A large repo won't fit in context, and hourly re-embedding is costly and still stale. <span class="cite"><a href="https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents">Context engineering</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d3" data-answer="0,1">
+  <p class="stem">After last week's documentation refresh, a product-support RAG assistant gives vague or wrong answers about the updated products only. Model, prompts and code are unchanged. Which <strong>two</strong> causes should you investigate first?</p>
+  <ol class="options">
+    <li>The refreshed documents were embedded with a different embedding model</li>
+    <li>New documents' tables and headings were split badly during chunking</li>
+    <li>The answering model's temperature setting has drifted higher since deployment</li>
+    <li>The system prompt now exceeds the model's comfortable context length</li>
+  </ol>
+  <div class="explain"><strong>Diagnose what changed</strong>: only the documents did, so check the indexing path. Vectors from an embedding model outside the query model's shared space (only the four general Voyage 4 models share one) aren't comparable; a new doc format can break structure-aware chunking. Temperature and prompt length didn't change, and wouldn't hit only the updated products. <span class="cite"><a href="../reference/blueprint.html">Blueprint heuristics</a>; <a href="https://blog.voyageai.com/2026/01/15/voyage-4/">Voyage 4 (shared vs separate spaces)</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d3" data-answer="0">
+  <p class="stem">A compliance team needs every answer from a policy assistant to link to the exact supporting passages, with a guarantee that pointers are valid. The current design asks Claude to return quotes inside a structured-output JSON schema. What do you recommend?</p>
+  <ol class="options">
+    <li>Use the Citations feature with documents and drop structured outputs</li>
+    <li>Keep structured outputs but add a stricter schema quote field</li>
+    <li>Ask Claude to repeat each quote for later string matching</li>
+    <li>Raise the temperature so the model explores more source passages</li>
+  </ol>
+  <div class="explain">The <strong>Citations</strong> API parses citations so pointers are guaranteed valid, picks more relevant quotes than prompt-based approaches, and <code>cited_text</code> doesn't count toward output tokens. Citations and structured outputs are <strong>incompatible</strong> (400 error), so the schema has to go for this path. <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/citations">Citations</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d3" data-answer="0,1">
+  <p class="stem">A customer-facing chat assistant has a 5k-token static system prompt and tool set. Users complain it "feels frozen" before answers appear. Which <strong>two</strong> changes most improve perceived latency without lowering answer quality?</p>
+  <ol class="options">
+    <li>Stream the response so text appears as it is generated</li>
+    <li>Cache the static system prompt and tools with prompt caching</li>
+    <li>Raise retrieved chunks to fifty so fewer follow-up questions occur</li>
+    <li>Ask for an exact word count limit on every response</li>
+  </ol>
+  <div class="explain"><strong>Streaming</strong> improves TTFT, the delay users feel. <strong>Caching</strong> a long stable prefix improves time-to-first-token and cuts input cost. Fifty chunks adds input tokens (slower). Word-count limits are less effective than sentence or paragraph limits because models count tokens. <span class="cite"><a href="https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/reduce-latency">Reducing latency</a>; <a href="https://platform.claude.com/docs/en/build-with-claude/prompt-caching">Prompt caching</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d3" data-answer="0">
+  <p class="stem">Your pipeline retrieves 150 candidates, reranks, and passes the top 20 to Claude. An engineer proposes reranking 1,000 candidates "for maximum accuracy" in an interactive app with a 2-second budget. What is the architect's response?</p>
+  <ol class="options">
+    <li>Measure accuracy and latency on evals before changing the setting</li>
+    <li>Approve it, because reranking more candidates is always worth it</li>
+    <li>Remove the reranker, because any reranking breaks the latency budget</li>
+    <li>Approve it, but double the model's maximum output token limit</li>
+  </ol>
+  <div class="explain">Reranking more chunks can improve accuracy but adds latency and cost; Anthropic advises experimenting with settings for your use case. Justify configuration with measured accuracy vs p95 latency, not intuition (a latency-optimised reranker such as <code>rerank-3-lite</code> is one more variant to test). "Always worth it" ignores the budget; removing the reranker throws away measured accuracy; output tokens have nothing to do with reranking. <span class="cite"><a href="https://www.anthropic.com/news/contextual-retrieval">Contextual Retrieval</a>; <a href="https://platform.claude.com/docs/en/build-with-claude/embeddings">Embeddings guide (rerankers)</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d3" data-answer="0">
+  <p class="stem">Every night a retailer summarises 40,000 product reviews for a dashboard read the next morning. All requests share a long instruction prefix. Which configuration is most cost-effective?</p>
+  <ol class="options">
+    <li>Message Batches API with prompt caching on the shared prefix</li>
+    <li>Real-time streaming calls on the most capable model currently available</li>
+    <li>Parallel real-time calls using as many concurrent workers as possible</li>
+    <li>Real-time calls with a five-minute prompt cache on each request</li>
+  </ol>
+  <div class="explain">Nobody is waiting, so <strong>batch</strong>: 50% cheaper, most batches done within an hour (max 24 h). Batch and caching discounts stack; use the 1-hour TTL because batches can take longer than 5 minutes. Streaming and parallel workers buy latency you don't need. <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/batch-processing">Batch processing</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d3" data-answer="0,1">
+  <p class="stem">A health-insurer runs a multi-agent claims assistant in production. Failures are intermittent and hard to reproduce. Member data is regulated. Which <strong>two</strong> monitoring choices are most appropriate?</p>
+  <ol class="options">
+    <li>Trace agent invocations and tool calls as linked OpenTelemetry spans</li>
+    <li>Store prompt content separately under access control, referenced from spans</li>
+    <li>Write full prompts and outputs into the shared application logs</li>
+    <li>Reproduce failures by rerunning the same prompt at temperature zero</li>
+  </ol>
+  <div class="explain"><strong>Tracing</strong> agent and tool steps (OTel <code>invoke_agent</code> / <code>execute_tool</code> spans) is how Anthropic diagnosed agent failures. OTel says content capture SHOULD be off by default and, in production, stored <strong>externally with separate access controls</strong>. Shared logs leak PHI. Agents are non-deterministic even with identical prompts, so reruns won't reliably reproduce. <span class="cite"><a href="https://www.anthropic.com/engineering/multi-agent-research-system">Multi-agent research system</a>; <a href="https://github.com/open-telemetry/semantic-conventions-genai/blob/main/docs/gen-ai/gen-ai-spans.md">OTel GenAI spans</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d3" data-answer="0">
+  <p class="stem">A research agent's tasks run for 20–40 minutes across many tool calls. Each deploy of a new prompt version breaks in-flight runs. Which deployment approach did Anthropic use for exactly this?</p>
+  <ol class="options">
+    <li>Rainbow deployments that shift traffic while old versions keep running</li>
+    <li>Blue-green deployments that switch all traffic over at one instant</li>
+    <li>Nightly maintenance windows that pause all running agents before deploying</li>
+    <li>Feature flags that hot-swap new prompts inside every running agent</li>
+  </ol>
+  <div class="explain">Agents are long-running and stateful, so Anthropic used <strong>rainbow deployments</strong>: gradually shift traffic from old to new versions while both run. An instant switch or hot-swap breaks agents mid-task. <span class="cite"><a href="https://www.anthropic.com/engineering/multi-agent-research-system">Multi-agent research system</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d3" data-answer="0">
+  <p class="stem">Finance wants a weekly Claude API cost and token breakdown per product team; each team has its own workspace. Engineers propose summing <code>usage</code> fields from every application log. What is the better source?</p>
+  <ol class="options">
+    <li>The Usage and Cost Admin API, grouped by workspace</li>
+    <li>Sampled OTel spans with the full prompt content captured</li>
+    <li>A nightly batch job asking Claude to estimate spend</li>
+    <li>Workspace API keys calling the usage endpoint per team</li>
+  </ol>
+  <div class="explain">The <strong>Usage &amp; Cost Admin API</strong> returns organisation-wide token usage (including cache reads and writes) and USD cost, groupable by workspace, model and API key, for reconciling with Anthropic billing; the docs pitch it as precise counts "instead of relying solely on response token counting" (what log summing is). Sampled spans undercount and capturing content adds privacy risk without improving cost data. Claude can't estimate your bill. Workspace API keys don't work on these endpoints: they need an Admin API credential. <span class="cite"><a href="https://platform.claude.com/docs/en/manage-claude/usage-cost-api">Usage and Cost API</a>.</span></div>
+</div>
+
+<!-- ============================================================ -->
+<h2>4 · Architect scenario</h2>
+
+<div class="callout">
+<p><strong>Tessaro Medical</strong> services infusion pumps in 900 hospitals. Field technicians want a mobile assistant that answers repair questions. Sources: 30k pages of PDF service manuals (heavy on tables, part numbers and fault codes, updated monthly), a Postgres parts-inventory and warranty database, and past service tickets that contain patient-adjacent data. Targets: first words on screen within 1.5 s, every repair step cited to a manual page, and the VP of Service wants a weekly report on quality and cost. A pilot that embedded everything into one vector index got fault-code questions wrong and quoted stale part numbers after the last manual update.</p>
+</div>
+
+<div class="recall" data-topic="d3" data-title="Scenario: Tessaro Medical">
+  <p class="prompt"><strong>(8 min)</strong> (a) How do you chunk and index the manuals, and what does the monthly update process need? (b) Which retrieval strategy for each source? (c) How do you hit the 1.5 s target and justify the configuration? (d) What do you monitor, and how do you handle ticket content in telemetry?</p>
+  <textarea placeholder="(a) … (b) … (c) … (d) …"></textarea>
+  <div class="model">
+    <p>(a) Structure-aware chunks per section/procedure; keep tables and fault-code rows intact; metadata: manual, model, revision, page. Apply <strong>contextual retrieval</strong> (prepend model + section context before embedding and BM25). Monthly: re-index changed manuals through the <em>same</em> chunker, contextualizer and embedding model; retire superseded revisions; run a retrieval eval before switching the index live.<br>
+    (b) Manuals: <strong>hybrid</strong> BM25 + embeddings (fault codes and part numbers are exact tokens), rerank to a small top-k. Inventory/warranty: a read-only <strong>SQL/API tool</strong>, never embeddings, so stock and part numbers are live. Tickets: optional, only after redaction, and kept out of the answer path unless evals show value.<br>
+    (c) <strong>Streaming</strong> for TTFT; <strong>cache</strong> the static system prompt and tools; a fast tier (or routing) for simple lookups; issue the retrieval and inventory calls in <strong>parallel</strong>; tune reranker candidates and top-k (or a lite reranker) on an eval set against p95 TTFT. Fast mode won't help here: it speeds output, not TTFT. Return chunks as <code>search_result</code>/documents with <strong>citations</strong> enabled (no structured outputs on that call).<br>
+    (d) Trace each request: retrieval, rerank, tool and model spans (OTel GenAI). Metrics: p95 TTFT and total latency, tokens incl. cache reads, cost per answer, tool error rate, citation coverage, retrieval hit rate on a labelled set, technician thumbs-down rate, drift after each manual update. VP's weekly cost view: the Usage &amp; Cost Admin API (by model/workspace) joined with the quality metrics. Content capture off by default; when needed, redact and store externally with restricted access, referenced from spans.</p>
+    <ul class="rubric">
+      <li>Structure-aware chunking + metadata (revision/page); contextual retrieval</li>
+      <li>Update process re-indexes with the same pipeline and runs evals before cut-over</li>
+      <li>Hybrid lexical + semantic for codes; rerank</li>
+      <li>Structured inventory via a query tool, not embeddings</li>
+      <li>Streaming + caching + parallel calls; config justified by evals vs p95</li>
+      <li>Citations enabled; aware of structured-output incompatibility</li>
+      <li>Tracing + latency/cost/error/quality metrics (cost via Usage &amp; Cost API); content off by default, external and access-controlled</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>5 · Go deeper</h2>
+
+<div class="callout source">
+<p><strong>Primary source (read this):</strong> Anthropic, <a href="https://www.anthropic.com/news/contextual-retrieval">"Introducing Contextual Retrieval"</a>. It covers chunking, contextual embeddings, contextual BM25, hybrid search, reranking, top-k and the small-corpus "skip RAG" rule in one read, with the numbers the exam likes.</p>
+</div>
+
+<div class="callout ask">
+<p><strong>Ask your teacher.</strong> Anything unclear, or you disagree with an answer? Ask in the chat. If your Partner Academy notes say otherwise, tell me and the lesson gets fixed.</p>
+</div>
+
+<div id="scoreboard" class="scoreboard"></div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

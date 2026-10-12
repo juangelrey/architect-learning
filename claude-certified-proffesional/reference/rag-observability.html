@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RAG, latency &amp; observability cheat sheet</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<nav class="crumbs"><a href="../index.html">Course map</a> · From <a href="../lessons/0004-integration-rag-observability.html">Lesson 4</a></nav>
+<div class="kicker">Reference · D3</div>
+<h1>RAG, retrieval, latency &amp; observability</h1>
+<p class="subtitle">Diagnose what changed; match retrieval to data shape; tune config with evals against p95; trace steps, not secrets. <span class="cite"><a href="https://www.anthropic.com/news/contextual-retrieval">Contextual Retrieval</a></span></p>
+
+<h2>Chunking &amp; indexing</h2>
+<ul>
+<li>Chunks: usually ≤ a few hundred tokens; size, boundary, overlap are tunables → run evals. <span class="cite"><a href="https://www.anthropic.com/news/contextual-retrieval">CR</a></span></li>
+<li>Structure-aware splits (sections, intact tables) + metadata (source, revision, page, date). <span class="cite">Architect practice</span></li>
+<li><strong>Contextual Retrieval:</strong> Claude writes 50–100 tokens of doc context per chunk, prepended before embedding <em>and</em> BM25. ≈ $1.02 / M doc tokens with caching. <span class="cite"><a href="https://www.anthropic.com/news/contextual-retrieval">CR</a></span></li>
+<li>Alternative: contextualized chunk embeddings (<code>voyage-context-4</code>): doc context per chunk, no LLM step. <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/embeddings">Embeddings</a>; <a href="https://blog.voyageai.com/2026/06/29/voyage-context-4/">voyage-context-4</a></span></li>
+<li>Anthropic has no embedding model; docs point to Voyage AI (MongoDB), assess vendors. Set <code>input_type</code> query/document. <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/embeddings">Embeddings</a></span></li>
+<li>Voyage now: <code>voyage-4-large</code>/<code>4</code>/<code>4-lite</code>, <code>voyage-code-4</code>, <code>voyage-law-2</code>, <code>voyage-finance-2</code>, <code>voyage-multimodal-3.5</code>, <code>voyage-context-4</code>; rerankers <code>rerank-3</code>, <code>rerank-3-lite</code> (drop-in, 2.5 thresholds still valid). <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/embeddings">Embeddings</a>; <a href="https://blog.voyageai.com/2026/09/30/rerank-3/">Rerank 3</a></span></li>
+<li>Same vector space for queries and index. The 4 general Voyage 4 models (large/base/lite/nano) share one space (swap query model "without re-vectorizing documents"); any other model change = re-embed corpus. <span class="cite"><a href="https://blog.voyageai.com/2026/01/15/voyage-4/">Voyage 4</a></span></li>
+<li>Doc refresh broke answers? Check the indexing path (embedding model, chunker, contextualizer) before the model. <span class="cite"><a href="blueprint.html">Blueprint heuristics</a></span></li>
+</ul>
+
+<h2>Contextual Retrieval numbers</h2>
+<table>
+<thead><tr><th>Setup (top-20 failure rate, base 5.7%)</th><th>Failure</th><th>Reduction</th></tr></thead>
+<tbody>
+<tr><td>Contextual embeddings</td><td>3.7%</td><td>35%</td></tr>
+<tr><td>+ Contextual BM25</td><td>2.9%</td><td>49%</td></tr>
+<tr><td>+ Reranking</td><td>1.9%</td><td>67%</td></tr>
+</tbody></table>
+<p class="cite">Best tested: retrieve 150 → rerank → top 20 (beat 5 and 10). Reranking more = more latency and cost. Figures from Sept 2024 post. <a href="https://www.anthropic.com/news/contextual-retrieval">CR</a></p>
+
+<h2>Retrieval by data shape</h2>
+<table>
+<thead><tr><th>Signal</th><th>Strategy</th></tr></thead>
+<tbody>
+<tr><td>Corpus &lt; ~200k tokens (~500 pages)</td><td>No RAG: all in prompt + prompt caching</td></tr>
+<tr><td>Paraphrased / conceptual queries</td><td>Semantic (embeddings)</td></tr>
+<tr><td>Exact IDs, codes, SKUs ("TS-999")</td><td>BM25, usually hybrid + rank fusion</td></tr>
+<tr><td>Precision-critical top results</td><td>Reranker over wider candidate set</td></tr>
+<tr><td>Aggregates over tables / live records</td><td>Read-only SQL/API tool (architect practice)</td></tr>
+<tr><td>Fast-changing, navigable (code repos)</td><td>Just-in-time agentic search (glob/grep), often hybrid; no stale index, slower <span class="cite"><a href="https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents">Context eng.</a></span></td></tr>
+<tr><td>Current public web info</td><td>Server-side web search (<code>web_search_20260318</code>, citations always on, dynamic filtering, $10/1k searches) / web fetch <span class="cite"><a href="https://platform.claude.com/docs/en/agents-and-tools/tool-use/web-search-tool">Web search</a></span></td></tr>
+</tbody></table>
+
+<h2>Grounding &amp; citations</h2>
+<ul>
+<li>20k+ tokens: long docs at the top, query at the end (up to 30% better); <code>&lt;document&gt;</code>/<code>&lt;source&gt;</code> XML; quote first, then answer. <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices">Prompting best practices</a></span></li>
+<li>Citations (all active models): <code>document</code> blocks (text/PDF sentence-chunked; custom content as-is; inline or Files API <code>file_id</code>) or <code>search_result</code> blocks (tool result or top-level). Valid pointers guaranteed; <code>cited_text</code> not billed as output. <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/citations">Citations</a>; <a href="https://platform.claude.com/docs/en/build-with-claude/search-results">Search results</a></span></li>
+<li>Works with caching, batch, token counting. <strong>Not</strong> with structured outputs (400). <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/citations">Citations</a></span></li>
+</ul>
+
+<h2>Latency &amp; cost levers</h2>
+<p class="cite">Quality first, then latency. TTFT = time to first token. <a href="https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/reduce-latency">Reducing latency</a></p>
+<table>
+<thead><tr><th>Lever</th><th>Gain</th><th>Price</th></tr></thead>
+<tbody>
+<tr><td>Faster tier (Haiku 5.5) / lower effort</td><td>Latency, cost</td><td>Accuracy on hard queries → route</td></tr>
+<tr><td>Fewer tokens; <code>max_tokens</code></td><td>Speed</td><td>Truncation</td></tr>
+<tr><td>Streaming</td><td>TTFT / perceived speed</td><td>Total time same</td></tr>
+<tr><td>Fast mode (<code>speed: "fast"</code>, research preview)</td><td>Up to 2.5× output tok/s (Opus 5.5/5/4.8)</td><td>Premium price; not TTFT; no Batch; speed switch = cache miss <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/fast-mode">Fast mode</a></span></td></tr>
+<tr><td>Prompt caching</td><td>TTFT; reads 0.1× (0.05× Opus/Sonnet 5.5, 0.025× Fable 5.1)</td><td>Writes 1.25× (5 min) / 2× (1 h); prefix tools→system→messages must be stable; min 512 tokens (current models) <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/prompt-caching">Caching</a></span></td></tr>
+<tr><td>Parallel tool calls</td><td>Up to 90% less research time (Anthropic, June 2025)</td><td>Independent, read-only calls only <span class="cite"><a href="https://platform.claude.com/docs/en/agents-and-tools/tool-use/parallel-tool-use">Parallel</a></span></td></tr>
+<tr><td>Top-k / rerank candidates</td><td>Recall</td><td>Latency, tokens, cost</td></tr>
+<tr><td>Message Batches</td><td>−50% cost; most &lt; 1 h, max 24 h</td><td>Async; stacks with caching (1-h TTL) <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/batch-processing">Batch</a></span></td></tr>
+</tbody></table>
+
+<h2>Observability</h2>
+<p class="cite"><a href="https://www.anthropic.com/engineering/multi-agent-research-system">Multi-agent research system</a> (June 2025); <a href="https://github.com/open-telemetry/semantic-conventions-genai/tree/main/docs/gen-ai">OTel GenAI semconv</a>; <a href="https://platform.claude.com/docs/en/manage-claude/usage-cost-api">Usage and Cost API</a></p>
+<ul>
+<li>Agents: non-deterministic even with identical prompts; stateful, errors compound → full production tracing, resume from failure point.</li>
+<li><strong>Rainbow deployments:</strong> shift traffic gradually, old and new running together, so in-flight agents survive.</li>
+<li>Privacy: monitor decision patterns and interaction structure, not conversation contents.</li>
+<li>OTel GenAI (status Development): spans for inference, <code>embeddings</code>, <code>retrieval</code>, memory ops, <code>invoke_agent</code>, <code>execute_tool</code>; metrics <code>gen_ai.client.inference.duration</code>, <code>gen_ai.client.inference.time_to_first_chunk</code>, <code>gen_ai.server.time_to_first_token</code>, <code>gen_ai.execute_tool.duration</code>, <code>gen_ai.client.inference.usage.*</code> (input, output, cache_read, cache_write, reasoning). <code>gen_ai.client.operation.duration</code> = non-inference ops only.</li>
+<li>Usage &amp; Cost Admin API (Admin key): <code>usage_report/messages</code> tokens by model/workspace/API key/service tier, 1m–1d buckets; <code>cost_report</code> daily USD; data ≈ 5 min fresh. Claude Code per-user: Claude Code Analytics API.</li>
+<li>Content (instructions, inputs, outputs): SHOULD NOT capture by default; opt-in. Production: store externally with separate access control, reference from spans.</li>
+<li>Watch: p50/p95 latency, TTFT, tokens + cache hits, cost/request, error and tool-failure (<code>is_error</code>) rates, retrieval hit rate, quality drift (LLM-as-judge + human sample).</li>
+</ul>
+</body>
+</html>

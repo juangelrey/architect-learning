@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>0003 · Ch. 2: Discovering domain knowledge</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-lesson="0002-discovering-domain-knowledge">
+
+<nav class="crumbs"><a href="../index.html">Course map</a> · <a href="../reference/glossary.html">Glossary</a> · Prev: <a href="0001-analyzing-business-domains.html">Ch. 1</a> · Next: <a href="0003-managing-domain-complexity.html">Ch. 3</a></nav>
+
+<div class="kicker">Chapter 2</div>
+<h1>Discovering domain knowledge</h1>
+<p class="subtitle">Software fails less because of bad code than because of misunderstood business. The fix is a language.</p>
+
+<div class="meta">
+  <span>≈ 12 minutes</span>
+  <span>2 review + 7 questions + 1 scenario</span>
+  <span><span class="tag strategic">Part I</span></span>
+</div>
+
+<!-- ============================================================ -->
+<h2>0 · Spaced review: ch. 1</h2>
+
+<div class="q" data-topic="strategic" data-answer="1">
+  <p class="stem">A payroll startup wins on an easy-to-use interface for small businesses. Its tax calculation follows the same official rules every competitor uses, and good vendors already exist for it. Tax calculation is a…</p>
+  <ol class="options">
+    <li>Core subdomain</li>
+    <li>Generic subdomain</li>
+    <li>Supporting subdomain</li>
+    <li>Bounded context</li>
+  </ol>
+  <div class="explain">Complex, but everyone does it the same way and it's solved, so it's <strong>generic</strong>: buy or adopt. The edge (core) is the user experience. <span class="cite">Ch. 1.</span></div>
+</div>
+
+<div class="q" data-topic="strategic" data-answer="0">
+  <p class="stem">What's the chapter 1 solution strategy for a <strong>supporting</strong> subdomain?</p>
+  <ol class="options">
+    <li>Build cheaply in-house or outsource</li>
+    <li>Buy an existing off-the-shelf product</li>
+    <li>Assign the strongest senior engineers</li>
+    <li>Use an event-sourced domain model</li>
+  </ol>
+  <div class="explain">It's simple and gives no edge, so <strong>build it cheaply in-house or outsource it</strong>. Buying is for generic subdomains. Your strongest engineers belong on the core. <span class="cite">Ch. 1.</span></div>
+</div>
+
+<!-- ============================================================ -->
+<h2>1 · Recall first</h2>
+
+<div class="recall" data-topic="warmup" data-title="Ubiquitous language recall">
+  <p class="prompt">Without looking: (a) What two properties must a ubiquitous language have to be <em>consistent</em>? (b) Why does the "telephone game" happen in software projects? (c) What is a <em>model</em>?</p>
+  <textarea placeholder="(a) …&#10;(b) …&#10;(c) …"></textarea>
+  <div class="model">
+    <p>(a) <strong>No ambiguous terms</strong> (one word, one meaning) and <strong>no synonyms</strong> (one meaning, one word).<br>
+    (b) Knowledge passes from domain experts to analysts, then into requirement documents, then to engineers, then into code. Some of it is lost or distorted at every hand-off.<br>
+    (c) A <strong>simplified representation</strong> of something that deliberately emphasizes some aspects and ignores others, in order to solve a specific problem. It's not a copy of reality.</p>
+    <ul class="rubric">
+      <li>Named both "no ambiguity" and "no synonyms"</li>
+      <li>Explained knowledge loss across translations</li>
+      <li>Defined a model as purposeful simplification</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>2 · The ideas that matter</h2>
+
+<p><strong>The problem.</strong> Business knowledge usually reaches the code second- or third-hand. Domain experts explain things to analysts, analysts write requirements, and engineers translate those into code. Each translation loses something, and the software ends up solving the wrong problem. <span class="cite">Ch. 2.</span></p>
+
+<p><strong>The fix: a ubiquitous language.</strong> Engineers and domain experts speak <em>one</em> language: the business's own, not technical jargon. It's used everywhere: in conversations, documents, tests, and the code itself. To stay consistent it allows <strong>no ambiguous terms</strong> and <strong>no synonyms</strong>.</p>
+
+<p><strong>It's a model.</strong> A model is useful because of what it leaves out. Think of a subway map: it's wrong about distances and right for its purpose. The ubiquitous language models the business: its entities, its behavior, its rules. It isn't meant to mirror the whole world.</p>
+
+<p><strong>Cultivating it</strong> is continuous work. Keep a glossary (a wiki works) for the nouns. Capture behavior and rules as executable scenarios, for example <a href="https://cucumber.io/docs/gherkin/reference/">Gherkin</a> Given/When/Then. Expect tacit knowledge: experts often don't know what they know, so ask questions and listen for terms that get used inconsistently.</p>
+
+<p class="cite">See also Evans, "Ubiquitous Language" in the <a href="https://www.domainlanguage.com/ddd/reference/">DDD Reference</a>, and <a href="https://martinfowler.com/bliki/UbiquitousLanguage.html">Fowler, "UbiquitousLanguage"</a>.</p>
+
+<!-- ============================================================ -->
+<h2>3 · Practice</h2>
+
+<div class="q" data-topic="strategic" data-answer="0">
+  <p class="stem">Within one team, people use <em>user</em>, <em>visitor</em>, and <em>account</em> interchangeably for the same concept. Which kind of inconsistency is this?</p>
+  <ol class="options">
+    <li>Synonymous terms</li>
+    <li>Ambiguous terms</li>
+    <li>Technical jargon</li>
+    <li>Missing invariants</li>
+  </ol>
+  <div class="explain">Several words for <em>one</em> meaning are <strong>synonyms</strong>. Ambiguity is the reverse: one word with several meanings. Pick one term, make it explicit, and use it everywhere.</div>
+</div>
+
+<div class="q" data-topic="strategic" data-answer="0">
+  <p class="stem">Which sentence belongs in a ubiquitous language?</p>
+  <ol class="options">
+    <li>A campaign can be published only after legal approval.</li>
+    <li>The campaign row's status column is set to published.</li>
+    <li>The CampaignService calls the repository and commits the transaction.</li>
+    <li>A campaign DTO is serialized and sent through Kafka.</li>
+  </ol>
+  <div class="explain">Only the first sentence is a <strong>business rule in business terms</strong>. The others describe implementation: tables, services, DTOs, brokers. A domain expert would never say them, so they don't belong in the language.</div>
+</div>
+
+<div class="q" data-topic="strategic" data-answer="0">
+  <p class="stem">In the chapter's sense, a model is…</p>
+  <ol class="options">
+    <li>A simplified representation built to solve a specific problem</li>
+    <li>A faithful copy of the real world in code</li>
+    <li>A database schema describing every attribute of the business</li>
+    <li>A UML diagram produced once before any development begins</li>
+  </ol>
+  <div class="explain">A model is useful because of what it <strong>leaves out</strong>. Trying to copy reality produces bloated models that serve no purpose well. Models evolve with the language. They aren't drawn once up front.</div>
+</div>
+
+<div class="q" data-topic="strategic" data-answer="0">
+  <p class="stem">Why does the chapter warn against the chain <em>domain experts → analysts → requirements docs → engineers</em>?</p>
+  <ol class="options">
+    <li>Knowledge degrades at each translation, like a telephone game</li>
+    <li>Analysts usually lack the technical skills to write code</li>
+    <li>Documents become outdated faster than code in agile teams</li>
+    <li>Engineers should never talk to stakeholders without a manager</li>
+  </ol>
+  <div class="explain">Each hand-off is a <strong>lossy translation</strong>, so the code drifts away from what experts actually meant. A shared language lets engineers work with domain experts directly.</div>
+</div>
+
+<div class="q" data-topic="strategic" data-answer="0">
+  <p class="stem">A team builds staff scheduling software for a hospital. Who are the <strong>domain experts</strong>?</p>
+  <ol class="options">
+    <li>The nurses and administrators who schedule shifts every day</li>
+    <li>The senior engineers who maintain the current scheduling system</li>
+    <li>The product owner who writes the backlog's user stories</li>
+    <li>The database administrators who own the hospital scheduling tables</li>
+  </ol>
+  <div class="explain">Domain experts are the people who <strong>know the business itself</strong>, whose knowledge the software has to capture. A product owner can act as a proxy, but relying only on a proxy recreates the telephone game. Engineers and DBAs know the <em>current system</em>, which isn't the same as knowing the domain.</div>
+</div>
+
+<div class="q" data-topic="strategic" data-answer="0">
+  <p class="stem">A glossary covers the nouns well. What does the chapter suggest for capturing the domain's <em>behavior and rules</em>?</p>
+  <ol class="options">
+    <li>Gherkin scenarios</li>
+    <li>UML diagrams</li>
+    <li>ER diagrams</li>
+    <li>Javadoc comments</li>
+  </ol>
+  <div class="explain"><strong>Given/When/Then scenarios</strong> state rules in the ubiquitous language, domain experts can read them, and they can run as tests. Entity-relationship (ER) diagrams and comments describe structure or implementation, not behavior.</div>
+</div>
+
+<div class="q" data-topic="strategic" data-answer="0">
+  <p class="stem">Where should the ubiquitous language be used?</p>
+  <ol class="options">
+    <li>Conversations, documentation, tests, and the source code itself</li>
+    <li>Requirements only; code keeps its own technical terms</li>
+    <li>Meetings with stakeholders only, never inside the codebase</li>
+    <li>Source code only, so identifiers become the truth</li>
+  </ol>
+  <div class="explain"><strong>Everywhere</strong>. That's what <em>ubiquitous</em> means. If the code uses different names from the conversation, the translation step, and its losses, come back.</div>
+</div>
+
+<!-- ============================================================ -->
+<h2>4 · Interview scenario</h2>
+
+<div class="callout">
+<p><strong>Rentora</strong>, a car-rental company. The operations manager explains:</p>
+<p><em>"When a customer books a car we create a <strong>reservation</strong>. Some people call it a <strong>booking</strong>. When they collect the car it becomes a <strong>rental</strong>, and the counter staff call that moment <strong>checkout</strong>, while the app team calls it <strong>pickup</strong>. A <strong>vehicle</strong> and a <strong>unit</strong> are the same thing for us. If the car comes back late we charge a <strong>late fee</strong>, unless the delay was our fault, like when we had to swap their car. Oh, and <strong>class</strong> means the car category (compact, SUV…), but finance uses <strong>class</strong> for the rental's tax class."</em></p>
+</div>
+
+<div class="recall" data-topic="strategic" data-title="Scenario: Rentora language">
+  <p class="prompt"><strong>(6 min)</strong> (1) List the synonyms to collapse and pick one canonical term for each. (2) Find the ambiguous term and say how you'd resolve it. (3) Write 3 glossary entries. (4) Write one Given/When/Then scenario for the late-fee rule, including its exception.</p>
+  <textarea placeholder="(1) Synonyms …&#10;(2) Ambiguity …&#10;(3) Glossary …&#10;(4) Given … When … Then …"></textarea>
+  <div class="model">
+    <p><strong>(1) Synonyms:</strong> reservation/booking → <em>Reservation</em> · checkout/pickup → <em>Pickup</em> · vehicle/unit → <em>Vehicle</em>.</p>
+    <p><strong>(2) Ambiguity:</strong> "class" means two different things. In operations, rename it <em>Vehicle category</em>. The tax meaning belongs to finance's model. Strong hint for ch. 3: these are two different <em>bounded contexts</em>, each of which can keep its own meaning.</p>
+    <p><strong>(3) Glossary (sample):</strong> <em>Reservation</em>: a customer's commitment to rent a vehicle category for a period, before pickup. · <em>Rental</em>: the period from pickup to return. · <em>Late fee</em>: a charge for returning after the due time, waived when the company caused the delay.</p>
+    <p><strong>(4)</strong></p>
+<pre><code>Scenario: Late return caused by the customer
+  Given a rental due back at 10:00
+  When the vehicle is returned at 12:30
+  Then a late fee is charged
+
+Scenario: Late return caused by a vehicle swap
+  Given a rental due back at 10:00
+  And the company swapped the vehicle during the rental
+  When the vehicle is returned at 12:30
+  Then no late fee is charged</code></pre>
+    <ul class="rubric">
+      <li>Found all three synonym pairs</li>
+      <li>Picked one canonical term for each, in business language</li>
+      <li>Identified "class" as ambiguous and proposed a resolution</li>
+      <li>Glossary entries define what a term <em>is</em>, without technical jargon</li>
+      <li>Wrote the scenario in business terms (no tables, no services)</li>
+      <li>Captured the exception (company-caused delay)</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>Your results</h2>
+<div id="scoreboard" class="scoreboard"></div>
+<p>Copy your results and paste them into the chat. Next up is <strong>ch. 3, Managing Domain Complexity</strong>: what to do when one language can't cover the whole company, as with "class" at Rentora.</p>
+
+<div class="callout source">
+<p><strong>Primary source:</strong> <a href="https://www.oreilly.com/library/view/learning-domain-driven-design/9781098100124/">Khononov, <em>Learning Domain-Driven Design</em>, ch. 2</a>. It's short. Re-read the sections on what a model is and on cultivating the ubiquitous language, then do the chapter exercises.</p>
+</div>
+
+<div class="callout ask">
+<p><strong>Questions?</strong> Ask me in the chat. For example: "How do I handle a domain expert who uses jargon inconsistently?" or "Should code identifiers be in the business's natural language, not English?"</p>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

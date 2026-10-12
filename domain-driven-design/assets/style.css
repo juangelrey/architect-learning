@@ -1,0 +1,158 @@
+/* Shared stylesheet for the DDD review course. Tufte-inspired. */
+:root {
+  --bg: #fffff8;
+  --ink: #111;
+  --muted: #6b6b6b;
+  --rule: #d9d6c7;
+  --accent: #8a2d1c;      /* oxblood, for headings & links */
+  --ok: #2f6b3a;
+  --ok-bg: #e9f3e6;
+  --bad: #9b2c2c;
+  --bad-bg: #f8e7e4;
+  --card: #fbf9ef;
+  --strategic: #3b5b8c;
+  --tactical: #7a4e9a;
+  --practice: #2f6b3a;
+  --beyond: #a0611a;
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  --sans: "Gill Sans", "Gill Sans MT", Calibri, "Segoe UI", sans-serif;
+  --mono: Consolas, "SF Mono", Menlo, monospace;
+}
+
+* { box-sizing: border-box; }
+html { font-size: 18px; }
+body {
+  margin: 0 auto;
+  padding: 3rem 1.5rem 6rem;
+  max-width: 46rem;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--serif);
+  line-height: 1.55;
+  counter-reset: question;
+}
+
+/* ---------- Typography ---------- */
+h1 { font-weight: 400; font-size: 2.2rem; line-height: 1.15; margin: 0 0 .3rem; }
+h2 { font-weight: 400; font-style: italic; font-size: 1.5rem; margin: 3rem 0 .8rem; color: var(--accent); }
+h3 { font-weight: 400; font-size: 1.15rem; margin: 2rem 0 .5rem; }
+p, li { font-size: 1rem; }
+a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+.subtitle { font-style: italic; color: var(--muted); font-size: 1.15rem; margin: 0 0 2rem; }
+.kicker { font-family: var(--sans); text-transform: uppercase; letter-spacing: .12em; font-size: .7rem; color: var(--muted); }
+small, .small { font-size: .85rem; color: var(--muted); }
+code { font-family: var(--mono); font-size: .88em; background: #f2efe2; padding: 0 .25em; border-radius: 3px; }
+hr { border: 0; border-top: 1px solid var(--rule); margin: 2.5rem 0; }
+.cite { font-size: .8rem; color: var(--muted); }
+.cite a { color: var(--muted); }
+
+/* ---------- Layout blocks ---------- */
+nav.crumbs { font-family: var(--sans); font-size: .8rem; margin-bottom: 2rem; color: var(--muted); }
+nav.crumbs a { color: var(--muted); }
+
+.callout {
+  border-left: 3px solid var(--accent);
+  background: var(--card);
+  padding: .8rem 1.1rem;
+  margin: 1.5rem 0;
+}
+.callout > :first-child { margin-top: 0; }
+.callout > :last-child { margin-bottom: 0; }
+.callout.ask { border-left-color: var(--strategic); }
+.callout.source { border-left-color: var(--beyond); }
+
+.meta {
+  display: flex; gap: 1.5rem; flex-wrap: wrap;
+  font-family: var(--sans); font-size: .8rem; color: var(--muted);
+  border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule);
+  padding: .5rem 0; margin-bottom: 2rem;
+}
+
+/* Topic tags: one color per book part */
+.tag {
+  display: inline-block; font-family: var(--sans); font-size: .65rem;
+  text-transform: uppercase; letter-spacing: .1em;
+  padding: .1rem .45rem; border-radius: 2px; color: #fff; vertical-align: middle;
+}
+.tag.strategic { background: var(--strategic); }
+.tag.tactical  { background: var(--tactical); }
+.tag.practice  { background: var(--practice); }
+.tag.beyond    { background: var(--beyond); }
+
+/* ---------- Tables (reference docs) ---------- */
+table { border-collapse: collapse; width: 100%; margin: 1rem 0 1.5rem; font-size: .9rem; }
+th, td { text-align: left; vertical-align: top; padding: .45rem .6rem; border-bottom: 1px solid var(--rule); }
+th { font-family: var(--sans); font-weight: 600; font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+
+/* Definition lists (glossary) */
+dl.glossary dt { font-weight: 700; margin-top: 1rem; }
+dl.glossary dd { margin: .15rem 0 0 0; }
+dl.glossary dd .avoid { display: block; font-size: .82rem; color: var(--muted); font-style: italic; }
+
+/* ---------- Quiz component (assets/quiz.js) ---------- */
+.q {
+  counter-increment: question;
+  border: 1px solid var(--rule);
+  background: var(--card);
+  border-radius: 4px;
+  padding: 1rem 1.2rem 1.1rem;
+  margin: 1.4rem 0;
+  break-inside: avoid;
+}
+.q .stem { margin: .3rem 0 .8rem; }
+.q .stem::before { content: counter(question) ". "; font-weight: 700; color: var(--accent); }
+.q ol.options { list-style: none; padding: 0; margin: 0; display: grid; gap: .45rem; }
+.q ol.options li {
+  border: 1px solid var(--rule); background: var(--bg);
+  padding: .5rem .8rem; border-radius: 3px; cursor: pointer;
+  transition: background .12s, border-color .12s;
+}
+.q ol.options li:hover { border-color: var(--ink); }
+.q.answered ol.options li { cursor: default; }
+.q.answered ol.options li:hover { border-color: var(--rule); }
+.q ol.options li.correct { background: var(--ok-bg); border-color: var(--ok); }
+.q ol.options li.wrong   { background: var(--bad-bg); border-color: var(--bad); text-decoration: line-through; }
+.q .explain { display: none; margin-top: .9rem; font-size: .92rem; border-top: 1px dashed var(--rule); padding-top: .7rem; }
+.q.answered .explain { display: block; }
+.q .verdict { font-family: var(--sans); font-weight: 600; font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; margin-right: .4rem; }
+.q .verdict.ok { color: var(--ok); }
+.q .verdict.bad { color: var(--bad); }
+
+/* Recall / scenario component: free answer → reveal → self-grade */
+.recall {
+  border: 1px solid var(--rule); border-radius: 4px;
+  padding: 1rem 1.2rem; margin: 1.5rem 0; background: var(--card);
+}
+.recall textarea {
+  width: 100%; min-height: 9rem; font-family: var(--serif); font-size: .95rem;
+  padding: .6rem; border: 1px solid var(--rule); background: var(--bg); resize: vertical;
+}
+.recall .model { display: none; margin-top: 1rem; border-top: 1px dashed var(--rule); padding-top: .8rem; }
+.recall.revealed .model { display: block; }
+.recall .rubric { list-style: none; padding: 0; }
+.recall .rubric li { margin: .3rem 0; }
+.recall .rubric label { cursor: pointer; }
+
+button, .btn {
+  font-family: var(--sans); font-size: .82rem; letter-spacing: .04em;
+  background: var(--ink); color: var(--bg); border: 0; border-radius: 3px;
+  padding: .45rem .9rem; cursor: pointer; margin-top: .6rem;
+}
+button.secondary { background: transparent; color: var(--ink); border: 1px solid var(--ink); }
+button:disabled { opacity: .4; cursor: default; }
+
+/* Results scoreboard */
+.scoreboard { border: 2px solid var(--ink); padding: 1rem 1.2rem; margin: 2rem 0; background: var(--bg); }
+.scoreboard table { margin: .5rem 0; }
+.scoreboard .bar { height: .5rem; background: var(--rule); border-radius: 2px; overflow: hidden; min-width: 6rem; }
+.scoreboard .bar > span { display: block; height: 100%; background: var(--ink); }
+
+/* ---------- Print ---------- */
+@media print {
+  html { font-size: 11pt; }
+  body { background: #fff; padding: 0; max-width: none; }
+  nav.crumbs, button, .no-print, .recall textarea { display: none !important; }
+  .q .explain, .recall .model { display: block !important; }
+  a { color: var(--ink); }
+  h2 { break-after: avoid; }
+}

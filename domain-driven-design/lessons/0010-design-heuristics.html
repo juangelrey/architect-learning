@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch. 10: Design heuristics</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-lesson="0010-design-heuristics">
+
+<nav class="crumbs"><a href="../index.html">Course map</a> · <a href="../reference/glossary.html">Glossary</a> · <a href="../reference/heuristics.html">Heuristics</a> · Prev: <a href="0009-communication-patterns.html">Ch. 9</a> · Next: <a href="0011-evolving-design-decisions.html">Ch. 11</a></nav>
+
+<div class="kicker">Chapter 10</div>
+<h1>Design heuristics</h1>
+<p class="subtitle">Parts I and II gave you the patterns. This chapter tells you which one to pick, and that decision is what interviewers ask you to defend.</p>
+
+<div class="meta">
+  <span>≈ 12 minutes</span>
+  <span>2 review + 7 questions + 1 scenario</span>
+  <span><span class="tag practice">Part III</span></span>
+</div>
+
+<!-- ============================================================ -->
+<h2>0 · Spaced review: ch. 4–5</h2>
+
+<div class="q" data-topic="tactical" data-answer="1">
+  <p class="stem">Business logic organized as objects that wrap database records and carry their own CRUD methods is called…</p>
+  <ol class="options">
+    <li>Transaction script</li>
+    <li>Active record</li>
+    <li>Domain model</li>
+    <li>Domain service</li>
+  </ol>
+  <div class="explain"><strong>Active record</strong> objects wrap data structures and persist themselves. Use it when the logic is simple but the data structures are complex. <span class="cite">Ch. 5.</span></div>
+</div>
+
+<div class="q" data-topic="strategic" data-answer="2">
+  <p class="stem">A downstream team consumes an upstream model that is perfectly reasonable for its needs, and the upstream team won't adapt anything. The cheapest sensible pattern is…</p>
+  <ol class="options">
+    <li>Anticorruption layer</li>
+    <li>Shared kernel</li>
+    <li>Conformist relationship</li>
+    <li>Partnership agreement</li>
+  </ol>
+  <div class="explain">If the upstream model is good enough, <strong>conformist</strong> avoids building a translation layer. Use an ACL when the upstream model is messy or when your context is core. <span class="cite">Ch. 4.</span></div>
+</div>
+
+<!-- ============================================================ -->
+<h2>1 · Recall first</h2>
+
+<div class="recall" data-topic="warmup" data-title="Decision tree recall">
+  <p class="prompt">Without looking, rebuild the chapter's decision tree. (a) What questions lead to each of the four business-logic patterns? (b) Which architecture goes with each pattern? (c) Which testing strategy goes with each pattern?</p>
+  <textarea placeholder="(a) Q1 … → ; Q2 … → ; Q3 … →&#10;(b) …&#10;(c) …"></textarea>
+  <div class="model">
+    <table>
+      <thead><tr><th>If…</th><th>Logic</th><th>Architecture</th><th>Testing</th></tr></thead>
+      <tbody>
+        <tr><td>Money, audit trail, or deep analysis of history needed</td><td>Event-sourced domain model</td><td>CQRS</td><td>Pyramid</td></tr>
+        <tr><td>Complex business logic</td><td>Domain model</td><td>Ports &amp; adapters</td><td>Pyramid</td></tr>
+        <tr><td>Simple logic, complex data structures</td><td>Active record</td><td>Layered + service layer</td><td>Diamond</td></tr>
+        <tr><td>Simple logic, simple data</td><td>Transaction script</td><td>Layered (3 layers)</td><td>Reversed pyramid</td></tr>
+      </tbody>
+    </table>
+    <ul class="rubric">
+      <li>The four logic patterns in the right order of questions</li>
+      <li>Architecture for each</li>
+      <li>Testing strategy for each</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>2 · The ideas that matter</h2>
+
+<p><strong>A heuristic is not a hard rule.</strong> It's a rule of thumb that's right in most cases, and it points you toward a good-enough decision quickly. Expect exceptions and know why you're making one. <span class="cite">Ch. 10.</span></p>
+
+<p><strong>Bounded contexts.</strong> Wrong <em>narrow</em> boundaries are expensive to fix, because every change crosses contexts and teams. When a domain is volatile or poorly understood, which describes most new core subdomains, start with <strong>wider</strong> boundaries and split them once the model settles.</p>
+
+<p><strong>Business logic.</strong> The decision is driven by the complexity of the logic and the data, and by whether you need history:</p>
+<ol>
+  <li>Does it involve money, need an audit trail, or need deep analysis of past behavior? → <strong>event-sourced domain model</strong></li>
+  <li>Otherwise, is the business logic complex? → <strong>domain model</strong></li>
+  <li>Otherwise, are the data structures complex? → <strong>active record</strong></li>
+  <li>Otherwise → <strong>transaction script</strong></li>
+</ol>
+<p>Subdomain type is a strong hint: core usually lands on 1 or 2, supporting on 3 or 4. The tree also works in reverse. If a supposed core subdomain fits a transaction script, check whether it is really core.</p>
+
+<p><strong>Architecture follows the logic pattern:</strong> event-sourced → CQRS (you need read models). Domain model → ports &amp; adapters (keeps the model free of infrastructure). Active record → layered with a service layer. Transaction script → plain layered.</p>
+
+<p><strong>Testing follows too:</strong> domain models get a <em>pyramid</em> (mostly unit tests on aggregates and value objects). Active record gets a <em>diamond</em> (mostly integration tests). Transaction script gets a <em>reversed pyramid</em> (mostly end-to-end tests).</p>
+
+<p class="cite">One-page summary: <a href="../reference/heuristics.html">Heuristics cheat sheet</a>. Background: <a href="https://martinfowler.com/bliki/CQRS.html">Fowler, "CQRS"</a>.</p>
+
+<!-- ============================================================ -->
+<h2>3 · Practice</h2>
+
+<div class="q" data-topic="practice" data-answer="2">
+  <p class="stem">A core subdomain manages customer wallet balances. Regulators require a full history of every change, and finance wants to analyze how balances evolved. The business-logic pattern is…</p>
+  <ol class="options">
+    <li>Transaction script</li>
+    <li>Domain model</li>
+    <li>Event-sourced model</li>
+    <li>Active record</li>
+  </ol>
+  <div class="explain">Money, an audit trail, and historical analysis are the triggers for an <strong>event-sourced domain model</strong>. The event stream <em>is</em> the history.</div>
+</div>
+
+<div class="q" data-topic="practice" data-answer="0">
+  <p class="stem">You've chosen a plain <strong>domain model</strong> (not event-sourced). Which architecture does the chapter pair with it?</p>
+  <ol class="options">
+    <li>Ports and adapters</li>
+    <li>Plain layered architecture</li>
+    <li>CQRS with projections</li>
+    <li>Layered with services</li>
+  </ol>
+  <div class="explain"><strong>Ports &amp; adapters</strong> puts the domain model at the center, free of infrastructure dependencies. CQRS is required for event sourcing. Layered variants suit the simpler patterns.</div>
+</div>
+
+<div class="q" data-topic="practice" data-answer="3">
+  <p class="stem">A context uses <strong>active record</strong>. Most of its tests should be…</p>
+  <ol class="options">
+    <li>Aggregate unit tests</li>
+    <li>End-to-end UI tests</li>
+    <li>Manual exploratory sessions</li>
+    <li>Integration tests mostly</li>
+  </ol>
+  <div class="explain">Active record logic is entangled with persistence, so <strong>integration tests</strong> give the best value: the <em>testing diamond</em>. Unit-heavy pyramids are for domain models, and end-to-end-heavy reversed pyramids for transaction scripts.</div>
+</div>
+
+<div class="q" data-topic="practice" data-answer="1">
+  <p class="stem">A team insists its core subdomain is "just a few transaction scripts", and the logic really is that simple. What does the chapter suggest?</p>
+  <ol class="options">
+    <li>Switch immediately to a full event-sourced domain model</li>
+    <li>Revisit whether it truly is a core subdomain</li>
+    <li>Add aggregates anyway so it looks more domain-driven</li>
+    <li>Merge it into a neighboring generic bounded context</li>
+  </ol>
+  <div class="explain">The heuristics run in both directions. Core subdomains are typically complex. If the logic is trivial, either the <strong>classification is wrong</strong> or the advantage won't last. Adding patterns for show is just accidental complexity.</div>
+</div>
+
+<div class="q" data-topic="practice" data-answer="0">
+  <p class="stem">Why does the chapter favor wider bounded contexts while a domain is still volatile?</p>
+  <ol class="options">
+    <li>Fixing wrong narrow boundaries is much more expensive</li>
+    <li>Wide contexts always perform better under heavy load</li>
+    <li>Narrow contexts are forbidden for core subdomains entirely</li>
+    <li>Wide contexts remove the need for ubiquitous language</li>
+  </ol>
+  <div class="explain">Changes that cross boundaries need cross-team coordination and integration changes. Refactoring <em>inside</em> a wide context is cheap. Split once you understand the domain.</div>
+</div>
+
+<div class="q" data-topic="practice" data-answer="2">
+  <p class="stem">Which statement best describes the chapter's heuristics?</p>
+  <ol class="options">
+    <li>Strict rules that must always be followed</li>
+    <li>Defaults dictated by the chosen technology stack</li>
+    <li>Rules of thumb holding in most cases</li>
+    <li>Suggestions that apply only to greenfield projects</li>
+  </ol>
+  <div class="explain">A <strong>heuristic</strong> gives a good-enough answer most of the time. In an interview, say when you'd deviate and why. That's what shows judgment.</div>
+</div>
+
+<div class="q" data-topic="practice" data-answer="0">
+  <p class="stem">An event-sourced domain model needs fast queries for dashboards. Which architecture follows from the heuristics?</p>
+  <ol class="options">
+    <li>CQRS</li>
+    <li>Layered</li>
+    <li>Hexagonal</li>
+    <li>Microkernel</li>
+  </ol>
+  <div class="explain">Event streams can't be queried efficiently, so <strong>CQRS</strong> projects them into read models. That's why the tree pairs event sourcing with CQRS.</div>
+</div>
+
+<!-- ============================================================ -->
+<h2>4 · Interview scenario</h2>
+
+<div class="callout">
+<p><strong>LoanLeaf</strong> is a peer-to-peer lending platform. Its edge is a <em>credit-scoring engine</em> with complex, constantly tuned rules. <em>Repayments</em> move money between borrowers and lenders, and regulators audit every cent. A <em>loan-application form builder</em> lets ops design multi-step forms with nested sections and conditional fields, but it has little real logic. A <em>newsletter-preferences</em> screen stores a few toggles per user.</p>
+</div>
+
+<div class="recall" data-topic="practice" data-title="Scenario: LoanLeaf choices">
+  <p class="prompt"><strong>(7 min)</strong> For each of the four areas, choose a business-logic pattern, an architecture, and a testing strategy. Justify each choice in one line, using the decision tree's questions.</p>
+  <textarea placeholder="Credit scoring: …&#10;Repayments: …&#10;Form builder: …&#10;Newsletter prefs: …"></textarea>
+  <div class="model">
+    <table>
+      <thead><tr><th>Area</th><th>Logic</th><th>Architecture</th><th>Testing</th></tr></thead>
+      <tbody>
+        <tr><td>Credit scoring</td><td>Domain model (complex logic). Event-sourced only if decision history must be audited.</td><td>Ports &amp; adapters</td><td>Pyramid</td></tr>
+        <tr><td>Repayments</td><td>Event-sourced domain model (money + audit)</td><td>CQRS</td><td>Pyramid</td></tr>
+        <tr><td>Form builder</td><td>Active record (complex data, simple logic)</td><td>Layered + service layer</td><td>Diamond</td></tr>
+        <tr><td>Newsletter prefs</td><td>Transaction script</td><td>Layered</td><td>Reversed pyramid</td></tr>
+      </tbody>
+    </table>
+    <p class="small">Strong interview move: argue that credit-scoring <em>decisions</em> may also need an audit trail ("why was this loan rejected?"), which would push it toward event sourcing too.</p>
+    <ul class="rubric">
+      <li>Repayments → event-sourced, citing money or audit</li>
+      <li>Credit scoring → domain model, citing complex logic</li>
+      <li>Form builder → active record, citing complex data and simple logic</li>
+      <li>Newsletter → transaction script</li>
+      <li>Correct architecture for all four</li>
+      <li>Correct testing strategy for all four</li>
+      <li>Discussed at least one exception or trade-off</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>Your results</h2>
+<div id="scoreboard" class="scoreboard"></div>
+<p>Copy your results and paste them into the chat. Next up is <strong>ch. 11, Evolving Design Decisions</strong>: what happens when the answers to these questions change.</p>
+
+<div class="callout source">
+<p><strong>Primary source:</strong> <a href="https://www.oreilly.com/library/view/learning-domain-driven-design/9781098100124/">Khononov, <em>Learning Domain-Driven Design</em>, ch. 10</a>. Study the decision-tree figures. This is the single highest-yield chapter for interviews.</p>
+</div>
+
+<div class="callout ask">
+<p><strong>Questions?</strong> Ask me in the chat. For example: "When would I break the 'domain model → ports &amp; adapters' heuristic?" or "Can a supporting subdomain ever justify event sourcing?"</p>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

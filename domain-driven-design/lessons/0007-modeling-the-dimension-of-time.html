@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch. 7: Modeling the dimension of time</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-lesson="0007-modeling-the-dimension-of-time">
+
+<nav class="crumbs"><a href="../index.html">Course map</a> · <a href="../reference/glossary.html">Glossary</a> · Prev: <a href="0006-tackling-complex-business-logic.html">Ch. 6</a> · Next: <a href="0008-architectural-patterns.html">Ch. 8</a></nav>
+
+<div class="kicker">Chapter 7</div>
+<h1>Modeling the dimension of time</h1>
+<p class="subtitle">Don't store what the aggregate <em>is</em>. Store everything that <em>happened</em> to it, and derive the state.</p>
+
+<div class="meta">
+  <span>≈ 12 minutes</span>
+  <span>2 review + 7 questions + 1 scenario</span>
+  <span><span class="tag tactical">Part II</span></span>
+</div>
+
+<!-- ============================================================ -->
+<h2>0 · Spaced review: ch. 3 &amp; 6</h2>
+
+<div class="q" data-topic="tactical" data-answer="2">
+  <p class="stem">What determines which data belongs inside an aggregate's boundary?</p>
+  <ol class="options">
+    <li>All entities sharing one database table</li>
+    <li>Everything one team owns and maintains</li>
+    <li>Data that must be strongly consistent</li>
+    <li>Objects that appear on one screen</li>
+  </ol>
+  <div class="explain">An aggregate is a <strong>consistency boundary</strong>. It contains only the data its business rules need to keep strongly consistent, and it's committed in one transaction. Keep it as small as that allows. <span class="cite">Ch. 6.</span></div>
+</div>
+
+<div class="q" data-topic="strategic" data-answer="1">
+  <p class="stem">How many teams can own a single bounded context?</p>
+  <ol class="options">
+    <li>Two cooperating teams</li>
+    <li>Exactly one team</li>
+    <li>Every engineering team</li>
+    <li>Domain experts only</li>
+  </ol>
+  <div class="explain"><strong>Exactly one.</strong> A bounded context is an ownership boundary. One team may own several contexts, but a context is never shared between teams. <span class="cite">Ch. 3.</span></div>
+</div>
+
+<!-- ============================================================ -->
+<h2>1 · Recall first</h2>
+
+<div class="recall" data-topic="warmup" data-title="Event sourcing recall">
+  <p class="prompt">Without looking: (a) In an event-sourced domain model, what is the source of truth, and how is current state obtained? (b) Name the benefits of event sourcing the chapter lists. (c) Name its drawbacks.</p>
+  <textarea placeholder="(a) …&#10;(b) …&#10;(c) …"></textarea>
+  <div class="model">
+    <p>(a) The <strong>event store</strong>: an append-only stream of domain events per aggregate. Current state is a <em>projection</em>: load the events and replay them in order.<br>
+    (b) <strong>Time traveling</strong> (rebuild the state at any past moment) · <strong>deep insight</strong> (the events can be projected into new models later) · <strong>audit log</strong> (a complete, reliable history) · <strong>advanced optimistic concurrency</strong> (conflicts detected with an expected version).<br>
+    (c) <strong>Learning curve</strong> · <strong>evolving the model</strong> (events are immutable, so changing their schema is hard) · <strong>architectural complexity</strong> (more moving parts).</p>
+    <ul class="rubric">
+      <li>Event store / event stream as the source of truth</li>
+      <li>State derived by replaying events</li>
+      <li>At least three of the four benefits</li>
+      <li>At least two of the three drawbacks</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>2 · The ideas that matter</h2>
+
+<p><strong>Event sourcing.</strong> A state-based model stores only an aggregate's <em>current</em> state, and the history of how it got there is lost. An event-sourced model stores every change as a <strong>domain event</strong> in an append-only <strong>event store</strong>. Current state is a projection, rebuilt by replaying the events. Other projections, such as reports or search models, can be built from the same events at any time. <span class="cite">Ch. 7.</span></p>
+
+<p><strong>Event-sourced domain model.</strong> A domain model whose aggregates follow the same loop for every command: load the aggregate's events, rebuild its state, execute the business logic, and <strong>append</strong> the new events. The aggregate's state lives only in its events.</p>
+
+<p><strong>The event store</strong> is append-only. Events are never modified or deleted. Its interface is minimal: fetch an aggregate's stream, and append to it with an <strong>expected version</strong>. If the stream changed since you read it, the append fails. That's optimistic concurrency.</p>
+
+<p><strong>Trade-offs.</strong> You gain time travel, deep insight, a built-in audit log, and better concurrency control. You pay with a learning curve, harder model evolution, and architectural complexity. This is the costliest business-logic pattern. Chapter 10 reserves it for core subdomains, typically ones that handle money or need an audit trail or deep analysis.</p>
+
+<p><strong>FAQ from the chapter.</strong> <em>Performance:</em> long streams can be snapshotted, but most aggregates never need it. <em>Deleting data:</em> use a <strong>forgettable payload</strong>: encrypt personal data with a per-subject key and delete the key when needed. <em>"Why not state plus a log file or table?"</em> Two separate writes can drift apart. With event sourcing, the events <em>are</em> the state, so there's nothing to drift.</p>
+
+<p class="cite">See also <a href="https://martinfowler.com/eaaDev/EventSourcing.html">Fowler, "Event Sourcing"</a>.</p>
+
+<!-- ============================================================ -->
+<h2>3 · Practice</h2>
+
+<div class="q" data-topic="tactical" data-answer="1">
+  <p class="stem">In an event-sourced domain model, an aggregate's current state is…</p>
+  <ol class="options">
+    <li>Read from a snapshot table updated on every change</li>
+    <li>Rebuilt by replaying its stored domain events in order</li>
+    <li>Stored in a table, with events kept for auditing</li>
+    <li>Cached in memory and periodically flushed to the database</li>
+  </ol>
+  <div class="explain">The events are the <strong>source of truth</strong>, and state is derived from them. Keeping a table as the "real" state with events beside it for auditing is the state-plus-log approach that the chapter argues against.</div>
+</div>
+
+<div class="q" data-topic="tactical" data-answer="3">
+  <p class="stem">Which operations does an event store need to provide?</p>
+  <ol class="options">
+    <li>Fetch, update, and delete individual events by their ID</li>
+    <li>Query by any field and overwrite outdated event payloads</li>
+    <li>Insert events and periodically compact them into one row</li>
+    <li>Fetch a stream and append with an expected version</li>
+  </ol>
+  <div class="explain">The store is <strong>append-only</strong>: you fetch an aggregate's events and append new ones, with the expected version as a concurrency check. Updating or deleting events would destroy the history that's the whole point.</div>
+</div>
+
+<div class="q" data-topic="tactical" data-answer="2">
+  <p class="stem">Two clerks modify the same aggregate at the same time. How does the event store detect the conflict?</p>
+  <ol class="options">
+    <li>The last write silently overwrites the first</li>
+    <li>A distributed lock is held for minutes</li>
+    <li>Append fails if the stream version changed</li>
+    <li>Both changes are merged automatically by timestamp</li>
+  </ol>
+  <div class="explain"><strong>Optimistic concurrency.</strong> Each append carries the version the writer loaded. If someone else appended in between, the version no longer matches, so the append is rejected. The caller reloads, re-runs the command, and retries.</div>
+</div>
+
+<div class="q" data-topic="tactical" data-answer="0">
+  <p class="stem">A customer exercises their right to be forgotten, but your events are immutable. What does the chapter suggest?</p>
+  <ol class="options">
+    <li>Encrypt personal data per subject, then delete the key</li>
+    <li>Rewrite every affected event, removing the personal data fields</li>
+    <li>Delete the entire event stream and rebuild from snapshots</li>
+    <li>Event sourcing cannot be used where personal data exists</li>
+  </ol>
+  <div class="explain">This is the <strong>forgettable payload</strong>. Personal data is stored encrypted with a key per subject. Deleting the key makes that data unreadable, and the event stream stays intact.</div>
+</div>
+
+<div class="q" data-topic="tactical" data-answer="1">
+  <p class="stem">Why not keep a normal state table and also write every change to a log file?</p>
+  <ol class="options">
+    <li>Text files cannot be read by projection engines</li>
+    <li>The two writes can't be committed atomically together</li>
+    <li>Logging to files always violates the ubiquitous language</li>
+    <li>Text files are too slow for production workloads</li>
+  </ol>
+  <div class="explain">It's a <strong>dual write</strong>. If one write succeeds and the other fails, the log and the state disagree, and nobody knows which to trust. With event sourcing there's only one write: the events.</div>
+</div>
+
+<div class="q" data-topic="tactical" data-answer="3">
+  <p class="stem">One aggregate's stream has grown to 50,000 events, and loading it is noticeably slow. What's the chapter's remedy?</p>
+  <ol class="options">
+    <li>Delete old events</li>
+    <li>Abandon event sourcing</li>
+    <li>Merge event streams</li>
+    <li>Take periodic snapshots</li>
+  </ol>
+  <div class="explain"><strong>Snapshots</strong>: periodically persist the rebuilt state, then replay only the events after it. The chapter stresses that most aggregates never need this. A huge stream is often a sign the aggregate boundary should be reconsidered, so measure before you optimize.</div>
+</div>
+
+<div class="q" data-topic="tactical" data-answer="2">
+  <p class="stem">Which subdomain best justifies an event-sourced domain model?</p>
+  <ol class="options">
+    <li>Supporting subdomain editing simple reference data tables</li>
+    <li>Generic subdomain bought from an external vendor</li>
+    <li>Core subdomain handling money that needs auditing</li>
+    <li>Any subdomain, since events are always better</li>
+  </ol>
+  <div class="explain">It's the most expensive pattern, so it belongs where its benefits pay off: <strong>core</strong> logic involving money, legal audit trails, or deep analysis. The ch. 10 decision tree spells this out.</div>
+</div>
+
+<!-- ============================================================ -->
+<h2>4 · Interview scenario</h2>
+
+<div class="callout">
+<p><strong>TipJar</strong> lets fans tip online creators. Each creator has a <em>wallet</em>. Tips come in, a platform fee is taken from each tip, creators request <em>payouts</em> to their bank, payouts can fail, and fans' banks sometimes reverse a tip (a <em>chargeback</em>). Finance must explain any balance to the cent, regulators ask "what was this creator's balance on March 3rd?", and creators can ask to have their personal data deleted.</p>
+</div>
+
+<div class="recall" data-topic="tactical" data-title="Scenario: TipJar wallet">
+  <p class="prompt"><strong>(7 min)</strong> Design the <em>Wallet</em> as an event-sourced aggregate. (1) List its domain events. (2) Explain how the balance is derived. (3) Answer the regulator's question. (4) Handle a payout request that arrives at the same moment as a chargeback. (5) Handle data deletion.</p>
+  <textarea placeholder="(1) Events …&#10;(2) Balance …&#10;(3) March 3rd …&#10;(4) Concurrency …&#10;(5) Deletion …"></textarea>
+  <div class="model">
+    <p><strong>(1)</strong> <code>TipReceived</code> · <code>PlatformFeeCharged</code> · <code>ChargebackApplied</code> · <code>PayoutRequested</code> · <code>PayoutCompleted</code> · <code>PayoutFailed</code>. Past tense, in business language.</p>
+    <p><strong>(2)</strong> Replay the stream: add tips, subtract fees and chargebacks, hold amounts for requested payouts, release them when a payout fails. The balance is never stored as the source of truth.</p>
+    <p><strong>(3)</strong> <strong>Time travel</strong>: replay only the events up to March 3rd. A projection can precompute daily balances for finance.</p>
+    <p><strong>(4)</strong> Both commands load version <em>n</em> and try to append at <em>n</em>. One succeeds. The other's append fails on the <strong>expected version</strong>, so it reloads, re-runs, and retries. The payout is then checked against the balance after the chargeback.</p>
+    <p><strong>(5)</strong> Keep personal data (name, bank details) out of events where possible. Where you can't, use a <strong>forgettable payload</strong> with a per-creator key that you delete on request.</p>
+    <ul class="rubric">
+      <li>Events named in the past tense, in business language</li>
+      <li>Balance derived by replay, not stored as the truth</li>
+      <li>Used time travel / projections for the historical question</li>
+      <li>Resolved the race with optimistic concurrency (expected version)</li>
+      <li>Handled deletion without mutating events (forgettable payload)</li>
+      <li>Justified event sourcing: core, money, audit</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>Your results</h2>
+<div id="scoreboard" class="scoreboard"></div>
+<p>Copy your results and paste them into the chat. Next up is <strong>ch. 8, Architectural Patterns</strong>: how to query TipJar's wallets when the only thing stored is events.</p>
+
+<div class="callout source">
+<p><strong>Primary source:</strong> <a href="https://www.oreilly.com/library/view/learning-domain-driven-design/9781098100124/">Khononov, <em>Learning Domain-Driven Design</em>, ch. 7</a>. Re-read the event-sourced domain model example and the FAQ at the end of the chapter, then do the exercises.</p>
+</div>
+
+<div class="callout ask">
+<p><strong>Questions?</strong> Ask me in the chat. For example: "How do I version an event schema?" or "Is event sourcing the same as event-driven architecture?" The second is a classic interview trap. Ch. 15 answers it.</p>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

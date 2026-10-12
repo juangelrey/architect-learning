@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claude Code for teams cheat sheet</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<nav class="crumbs"><a href="../index.html">Course map</a> · From <a href="../lessons/0008-developer-productivity.html">Lesson 8</a></nav>
+<div class="kicker">Reference · D7</div>
+<h1>Claude Code for teams</h1>
+<p class="subtitle">Context advises, hooks and managed settings enforce, the sandbox backstops. Checked 2026-10-12. <span class="cite"><a href="https://code.claude.com/docs/en/best-practices">Best practices</a></span></p>
+
+<h2>Settings precedence (highest first)</h2>
+<table><tbody>
+<tr><th>Managed</th><td>Server-managed (claude.ai console) · MDM (macOS <code>com.anthropic.claudecode</code>; Windows <code>HKLM\SOFTWARE\Policies\ClaudeCode</code>) · <code>managed-settings.json</code> + <code>managed-settings.d/</code> in <code>/Library/Application Support/ClaudeCode/</code>, <code>/etc/claude-code/</code>, <code>C:\Program Files\ClaudeCode\</code>. Within the tier: remote &gt; MDM/HKLM &gt; file &gt; HKCU; first source wins by default (<code>managedSourcesBehavior: "merge"</code> combines them).</td></tr>
+<tr><th>Command line</th><td><code>--settings</code>, <code>--model</code>, <code>--permission-mode</code></td></tr>
+<tr><th>Local project</th><td><code>.claude/settings.local.json</code> (git-excluded when Claude Code creates it; gitignore it yourself if you create it by hand)</td></tr>
+<tr><th>Shared project</th><td><code>.claude/settings.json</code> (committed)</td></tr>
+<tr><th>User</th><td><code>~/.claude/settings.json</code></td></tr>
+<tr><th>Not settings</th><td><code>~/.claude.json</code> = app state, trust, user/local MCP. Arrays merge across levels. <code>/status</code> shows sources.</td></tr>
+</tbody></table>
+<p class="cite"><a href="https://code.claude.com/docs/en/settings">Settings</a> · <a href="https://code.claude.com/docs/en/managed-settings">Managed settings</a></p>
+
+<h2>Managed-only locks</h2>
+<ul>
+<li><code>allowManagedPermissionRulesOnly</code>, <code>allowManagedHooksOnly</code>, <code>allowManagedMcpServersOnly</code></li>
+<li><code>strictKnownMarketplaces</code> (<code>[]</code> blocks all), <code>blockedMarketplaces</code>, <code>disableSideloadFlags</code> (rejects <code>--plugin-dir</code>, <code>--plugin-url</code>, <code>--agents</code>, <code>--mcp-config</code>), <code>strictPluginOnlyCustomization</code></li>
+<li><code>sandbox.network.allowManagedDomainsOnly</code>, <code>managedMcpServers</code>, <code>forceRemoteSettingsRefresh</code></li>
+<li><code>permissions.disableBypassPermissionsMode</code> / <code>disableAutoMode</code> = <code>"disable"</code> (most useful here)</li>
+</ul>
+<p class="cite"><a href="https://code.claude.com/docs/en/managed-settings">Managed settings</a> · <a href="https://code.claude.com/docs/en/permissions">Permissions</a></p>
+
+<h2>Permissions</h2>
+<table><tbody>
+<tr><th>Order</th><td>deny → ask → allow; first match wins; specificity irrelevant; deny anywhere beats allow anywhere</td></tr>
+<tr><th>Syntax</th><td><code>Bash(npm run *)</code> · <code>Read(./secrets/**)</code> · <code>WebFetch(domain:x.com)</code> · <code>mcp__srv__*</code> · <code>Agent(Explore)</code> · bare <code>Bash</code> removes the tool</td></tr>
+<tr><th>Weak spots</th><td>Bash patterns miss <code>git -C . push</code>, path-invoked binaries, <code>sh -c</code> → add hook or sandbox. <code>.claudeignore</code> does nothing.</td></tr>
+<tr><th>Modes</th><td><code>default</code> (labelled Manual; alias <code>manual</code>) · <code>acceptEdits</code> · <code>plan</code> · <code>auto</code> (classifier) · <code>dontAsk</code> (deny unless allowed) · <code>bypassPermissions</code> (containers only). Auto is the built-in start for interactive terminal/VS Code (v2.1.283+); in scripts, pass <code>--permission-mode</code> explicitly. <span class="cite"><a href="https://code.claude.com/docs/en/permission-modes">Modes</a></span></td></tr>
+<tr><th>Trust</th><td>Project allow rules apply after workspace trust; <code>-p</code> has no trust dialog</td></tr>
+</tbody></table>
+<p class="cite"><a href="https://code.claude.com/docs/en/permissions">Permissions</a></p>
+
+<h2>CLAUDE.md and rules</h2>
+<table><tbody>
+<tr><th>Scopes</th><td>Managed (<code>/etc/claude-code/CLAUDE.md</code> etc., can't be excluded) · user <code>~/.claude/CLAUDE.md</code> · project <code>./CLAUDE.md</code> or <code>./.claude/CLAUDE.md</code> · local <code>./CLAUDE.local.md</code> · <code>AGENTS.md</code> read when no CLAUDE.md exists</td></tr>
+<tr><th>Loading</th><td>Concatenated root → cwd; subdirectory files on demand; root re-injected after <code>/compact</code></td></tr>
+<tr><th>Imports</th><td><code>@path</code>, relative to file, max 4 hops; no context saving</td></tr>
+<tr><th>Rules</th><td><code>.claude/rules/*.md</code>; <code>paths:</code> frontmatter = path-scoped</td></tr>
+<tr><th>Size</th><td>&lt; 200 lines; prune with "would removing this cause mistakes?"; must-follow → hook</td></tr>
+</tbody></table>
+<p class="cite"><a href="https://code.claude.com/docs/en/memory">Memory</a></p>
+
+<h2>Extensions</h2>
+<table>
+<thead><tr><th>Mechanism</th><th>Where</th><th>Remember</th></tr></thead>
+<tbody>
+<tr><td>Skill</td><td><code>.claude/skills/x/SKILL.md</code>, <code>~/.claude/skills/</code>, plugin</td><td>Description always loaded, body on use; <code>disable-model-invocation</code>, <code>allowed-tools</code>, <code>context: fork</code>; <code>.claude/commands/x.md</code> still works</td></tr>
+<tr><td>Subagent</td><td><code>.claude/agents/</code>, <code>~/.claude/agents/</code>, <code>--agents</code></td><td>Own context; <code>name</code>+<code>description</code> required; <code>tools</code>, <code>model</code>, <code>permissionMode</code>, <code>isolation: worktree</code>; Explore/Plan read-only</td></tr>
+<tr><td>Hook</td><td><code>"hooks"</code> in settings, plugin <code>hooks/hooks.json</code>, frontmatter</td><td>Exit 0 ok · exit 2 block (stderr → Claude; runs before permission rules, so beats allow) · other = non-blocking unless <code>"onFailure": "block"</code>; PostToolUse runs after the tool, so it can't undo; outside the sandbox; matchers case-sensitive</td></tr>
+<tr><td>MCP</td><td>local (default) / project <code>.mcp.json</code> / user</td><td>local &gt; project &gt; user &gt; plugin &gt; connectors; <code>${VAR}</code>; http preferred</td></tr>
+<tr><td>Plugin</td><td><code>.claude-plugin/plugin.json</code>; catalog <code>marketplace.json</code></td><td>Team: <code>extraKnownMarketplaces</code> + <code>enabledPlugins</code> in managed or repo settings</td></tr>
+</tbody>
+</table>
+<p class="cite"><a href="https://code.claude.com/docs/en/skills">Skills</a> · <a href="https://code.claude.com/docs/en/sub-agents">Subagents</a> · <a href="https://code.claude.com/docs/en/hooks">Hooks</a> · <a href="https://code.claude.com/docs/en/mcp">MCP</a> · <a href="https://code.claude.com/docs/en/plugins/org">Plugins for orgs</a></p>
+
+<h2>Governing MCP</h2>
+<table><tbody>
+<tr><th>managed-mcp.json</th><td>System path only; exclusive control; <code>{"mcpServers":{}}</code> disables MCP</td></tr>
+<tr><th>managedMcpServers</th><td>Provide https servers alongside users' own</td></tr>
+<tr><th>Allowlist</th><td><code>allowedMcpServers</code> (<code>serverUrl</code>/<code>serverCommand</code>) + <code>allowManagedMcpServersOnly</code>; <code>serverName</code> isn't security</td></tr>
+<tr><th>Denylist</th><td><code>deniedMcpServers</code> always wins, merges from all scopes</td></tr>
+</tbody></table>
+<p class="cite"><a href="https://code.claude.com/docs/en/managed-mcp">Managed MCP</a></p>
+
+<h2>Sandbox</h2>
+<p>Shell commands (Bash, PowerShell, Monitor); Seatbelt (macOS), bubblewrap (Linux/WSL2), none on native Windows; off by default. Writes: cwd + temp. Network: proxy, empty allowlist. Outside it: Read/Edit/Write/WebFetch tools, hooks, local MCP servers. Enforce: <code>{"sandbox":{"enabled":true,"failIfUnavailable":true,"allowUnsandboxedCommands":false}}</code>. TLS not inspected by default. <span class="cite"><a href="https://code.claude.com/docs/en/sandboxing">Sandboxing</a></span></p>
+
+<h2>CI and providers</h2>
+<table><tbody>
+<tr><th>Headless</th><td><code>claude -p</code> · <code>--output-format json</code> · <code>--json-schema</code> · <code>--allowedTools</code> · <code>--permission-mode dontAsk</code> · <code>--max-budget-usd</code> · <code>--bare</code> for CI (needs API key; skips hooks, skills, MCP, CLAUDE.md) <span class="cite"><a href="https://code.claude.com/docs/en/headless">Headless</a></span></td></tr>
+<tr><th>GitHub Actions</th><td><code>anthropics/claude-code-action@v1</code>; <code>/install-github-app</code>; <code>prompt</code> = automation; CLI flags via <code>claude_args</code> (<code>--max-turns</code>, <code>--allowedTools</code>); auth <code>ANTHROPIC_API_KEY</code> secret, workload identity federation, or Bedrock/Agent Platform/Foundry via OIDC (<code>id-token: write</code>); timeouts, concurrency <span class="cite"><a href="https://code.claude.com/docs/en/github-actions">GitHub Actions</a></span></td></tr>
+<tr><th>Bedrock</th><td><code>CLAUDE_CODE_USE_BEDROCK=1</code> or <code>/setup-bedrock</code>; AWS SSO + <code>awsAuthRefresh</code>; pin <code>ANTHROPIC_DEFAULT_*_MODEL</code> to control upgrades; no <code>/logout</code>, no WebSearch <span class="cite"><a href="https://code.claude.com/docs/en/amazon-bedrock">Bedrock</a></span></td></tr>
+<tr><th>Google Cloud Agent Platform</th><td>Formerly Vertex AI. <code>CLAUDE_CODE_USE_VERTEX=1</code> or <code>/setup-vertex</code>, <code>CLOUD_ML_REGION</code>, <code>ANTHROPIC_VERTEX_PROJECT_ID</code>; pin models. Microsoft Foundry is the third cloud option. <span class="cite"><a href="https://code.claude.com/docs/en/google-vertex-ai">Agent Platform</a></span></td></tr>
+<tr><th>OTel</th><td><code>CLAUDE_CODE_ENABLE_TELEMETRY=1</code> via managed <code>env</code>; <code>OTEL_RESOURCE_ATTRIBUTES</code> for team/cost center; set <code>OTEL_EXPORTER_OTLP_PROTOCOL</code>; prompts redacted by default <span class="cite"><a href="https://code.claude.com/docs/en/monitoring-usage">Monitoring</a></span></td></tr>
+<tr><th>Analytics</th><td>Teams/Enterprise dashboard at claude.ai/analytics/claude-code: usage, accept rate, PRs with CC (GitHub app); no per-user cost (use OTel) <span class="cite"><a href="https://code.claude.com/docs/en/analytics">Analytics</a></span></td></tr>
+</tbody></table>
+
+<h2>Workflow and debugging</h2>
+<ul>
+<li>Explore → Plan (plan mode) → Implement → Commit; always give a way to verify.</li>
+<li><code>/clear</code> between tasks and after two failed corrections; <code>/compact &lt;focus&gt;</code>; subagents for exploration.</li>
+<li>Parallel: worktrees (<code>claude -w name</code>, <code>.worktreeinclude</code>), <code>/batch</code>, background sessions (<code>claude --bg</code>, <code>claude agents</code>), agent teams (experimental, off by default). <code>/rewind</code> for checkpoints (Bash changes not tracked).</li>
+<li><code>/doctor</code> (in-session fixes) · <code>claude doctor</code> (read-only, when it won't start) · <code>/debug</code> · <code>/status</code> · <code>/context</code> · <code>/hooks</code> · <code>/mcp</code> · <code>claude --debug=mcp</code> · <code>claude --safe-mode</code> · clean test <code>claude --setting-sources user</code>.</li>
+<li>Classic bugs: <code>.mcp.json</code> in <code>.claude/</code>; <code>mcpServers</code> in settings.json; relative MCP paths; matcher <code>bash</code>; skill not in a folder.</li>
+</ul>
+<p class="cite"><a href="https://code.claude.com/docs/en/best-practices">Best practices</a> · <a href="https://code.claude.com/docs/en/worktrees">Worktrees</a> · <a href="https://code.claude.com/docs/en/troubleshooting">Troubleshooting</a> · <a href="https://code.claude.com/docs/en/debug-your-config">Debug your config</a></p>
+</body>
+</html>

@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>D4: Evaluation, testing &amp; optimization</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-lesson="0005-evaluation-testing">
+
+<nav class="crumbs"><a href="../index.html">Course map</a> · <a href="../reference/blueprint.html">Exam blueprint</a> · <a href="../reference/evaluation.html">Evaluation cheat sheet</a> · Prev: <a href="0004-integration-rag-observability.html">D3 · II</a> · Next: <a href="0006-governance-safety-risk.html">D5</a></nav>
+
+<div class="kicker">Lesson 5 · Domain 4 · 16% of the exam</div>
+<h1>Evaluation, testing &amp; optimization</h1>
+<p class="subtitle">The exam's favourite move here: a symptom, a number or a bill, and you pick the <em>measured</em> fix, not the guess.</p>
+
+<div class="meta">
+  <span>≈ 20 minutes</span>
+  <span>3 review + 1 recall + 13 questions + 1 scenario</span>
+  <span><span class="tag d4">D4</span></span>
+</div>
+
+<div class="callout source">
+<p><strong>Official sample 3 is a D4 item.</strong> A RAG system turns confidently wrong right after a document refresh; model and latency are unchanged. Answer: look at <em>retrieval/indexing</em> first (stale or irrelevant chunks, broken re-index, mismatched embeddings), because nothing else changed. <span class="cite"><a href="../sources/ccar-p-exam-guide.pdf">Exam guide §8, sample 3</a>.</span> The pattern behind it: <strong>diagnose what changed, with evidence, before touching the model.</strong></p>
+</div>
+
+<!-- ============================================================ -->
+<h2>0 · Spaced review</h2>
+
+<div class="q" data-topic="d1" data-answer="0">
+  <p class="stem">A law firm's client intake is always the same three steps: extract the parties, check the conflicts database, draft the engagement letter. Which design fits best?</p>
+  <ol class="options">
+    <li>A prompt chain with a programmatic check between fixed steps</li>
+    <li>An autonomous agent that plans its own steps every time</li>
+    <li>An orchestrator that spawns fresh new workers for every intake</li>
+    <li>A voting setup that runs each intake three separate times</li>
+  </ol>
+  <div class="explain">Steps known in advance → <strong>workflow</strong> (prompt chaining) with gates. Agents and orchestrators are for subtasks you can't predict; voting is for confidence on one task, not sequencing. <span class="cite"><a href="https://www.anthropic.com/engineering/building-effective-agents">Building effective agents</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d2" data-answer="0">
+  <p class="stem">An app caches a long system prompt, but the usage logs show <code>cache_read_input_tokens</code> stays at 0. The team recently added the current timestamp to the top of the system prompt. What is the most likely cause?</p>
+  <ol class="options">
+    <li>The changing timestamp breaks the exact prefix match every request</li>
+    <li>Cache reads are only reported on the Message Batches API</li>
+    <li>The cache only covers messages, never the system prompt itself</li>
+    <li>Cache entries always expire before a second request can arrive</li>
+  </ol>
+  <div class="explain">Cache hits need <strong>100% identical</strong> prefix segments, in order tools → system → messages. A value that changes per request at the top of the prompt means every request is a miss. Put dynamic content after the cached static prefix. Reads are reported on normal requests too, and the 5-minute TTL refreshes on each hit. To find the break without guessing, turn on <strong>cache diagnostics</strong>: pass the previous response's <code>id</code> and the API reports where the prefix diverged (model, system, tools or messages). <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/prompt-caching">Prompt caching</a>; <a href="https://platform.claude.com/docs/en/build-with-claude/cache-diagnostics">Cache diagnostics</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d3" data-answer="0">
+  <p class="stem">In Anthropic's contextual retrieval experiments, which combination produced the largest reduction in failed retrievals (1 − recall@20)?</p>
+  <ol class="options">
+    <li>Contextual embeddings with BM25, plus a reranking step</li>
+    <li>Contextual embeddings on their own, with no reranking</li>
+    <li>Plain embeddings with a larger number of chunks</li>
+    <li>Contextual BM25 on its own, with no embeddings</li>
+  </ol>
+  <div class="explain">Embeddings alone: −35%. Embeddings + BM25: −49%. <strong>Plus reranking: −67%</strong> (5.7% → 1.9%). For knowledge bases under ~200k tokens, skip RAG and put the whole thing in the prompt with caching. <span class="cite"><a href="https://www.anthropic.com/engineering/contextual-retrieval">Contextual retrieval</a>.</span></div>
+</div>
+
+<!-- ============================================================ -->
+<h2>1 · Recall first</h2>
+
+<div class="recall" data-topic="d4" data-title="Evals recall">
+  <p class="prompt">Without looking: (a) What four properties make a success criterion good? (b) Name the three grader types, with one strength and one weakness each. (c) Define pass@k and pass^k. Which one matters for a customer-facing agent? (d) Capability eval vs regression eval: what pass rate do you expect from each?</p>
+  <textarea placeholder="(a) …&#10;(b) …&#10;(c) …&#10;(d) …"></textarea>
+  <div class="model">
+    <p>(a) <strong>Specific, measurable, achievable, relevant.</strong> Usually several dimensions at once (accuracy, latency, cost, safety…).<br>
+    (b) <strong>Code-based</strong>: fast, cheap, objective, reproducible; brittle and lacks nuance. <strong>LLM-as-judge</strong>: flexible, scalable, handles open-ended output; non-deterministic, costlier than code, and needs calibration against humans. <strong>Human</strong>: gold standard; slow, expensive, hard to scale.<br>
+    (c) <strong>pass@k</strong>: probability at least one of k trials succeeds (rises with k). <strong>pass^k</strong>: probability <em>all</em> k succeed (falls with k). Customer-facing agents need consistency, so pass^k.<br>
+    (d) <strong>Capability</strong>: starts low, gives the team a target. <strong>Regression</strong>: near 100%, protects what already works. Capability tasks "graduate" into the regression suite.</p>
+    <ul class="rubric">
+      <li>SMAR(T)-style criteria: specific, measurable, achievable, relevant</li>
+      <li>Three grader types with a correct trade-off each</li>
+      <li>pass@k = at least one; pass^k = all k</li>
+      <li>pass^k for customer-facing reliability</li>
+      <li>Capability low / regression ≈ 100%</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>2 · The ideas that matter</h2>
+
+<p><strong>Success criteria come first, and they're numbers.</strong> Good criteria are <em>specific, measurable, achievable, relevant</em>. "Safe outputs" is bad; "less than 0.1% of 10,000 outputs flagged for toxicity" is good. Most use cases need several dimensions at once: task fidelity, consistency, relevance, tone, privacy, context use, <strong>latency</strong> and <strong>price</strong>. Anthropic's example pairs F1 ≥ 0.85, 99.5% non-toxic and 95% of responses under 200 ms. <span class="cite"><a href="https://platform.claude.com/docs/en/test-and-evaluate/develop-tests">Define success criteria and build evaluations</a>.</span> The blueprint's five metrics (accuracy, latency, cost, safety, security) map straight onto these. Security is measured the same way, e.g. a pass rate on prompt-injection or data-leak test cases.</p>
+
+<p><strong>Design evals that mirror real traffic, then automate.</strong> Three principles: be task-specific (include edge cases), automate grading where possible, and prefer volume: "more questions with slightly lower signal automated grading is better than fewer questions with high-quality human hand-graded evals." Edge cases to include: irrelevant or missing input, overly long input, harmful input, and ambiguous cases where even humans disagree. Claude can help generate more cases from a seed set. <span class="cite"><a href="https://platform.claude.com/docs/en/test-and-evaluate/develop-tests">Develop tests</a>.</span></p>
+
+<table>
+<thead><tr><th>Grader</th><th>Use for</th><th>Watch out</th></tr></thead>
+<tbody>
+<tr><td>Code-based (exact/string match, unit tests, state checks)</td><td>Labels, formats, end state. Fastest, most reliable, scalable</td><td>Brittle to valid variation; no nuance</td></tr>
+<tr><td>LLM-as-judge with rubric</td><td>Tone, completeness, faithfulness, open-ended output</td><td>Non-deterministic; "test to ensure reliability first then scale" (calibrate against humans); detailed rubric; constrained output (correct/incorrect, 1–5); run the grader with thinking on so it reasons before scoring; ideally a different model from the generator</td></tr>
+<tr><td>Human</td><td>Gold labels, calibrating judges, spot checks</td><td>Slow, expensive: "avoid if possible" for routine grading</td></tr>
+</tbody>
+</table>
+<p class="cite">Sources: <a href="https://platform.claude.com/docs/en/test-and-evaluate/develop-tests">Develop tests</a>; <a href="https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents">Demystifying evals for AI agents</a>.</p>
+
+<p><strong>Where the cases come from.</strong> A <em>golden set</em> (inputs with reference answers), deliberate <em>edge cases</em>, and <em>production-sampled</em> cases: "20–50 simple tasks drawn from real failures is a great start". Convert bug reports and support tickets into tasks. Balance them: test where a behaviour <em>should</em> happen and where it <em>shouldn't</em>, or you'll get an over-triggering agent. <span class="cite"><a href="https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents">Demystifying evals</a>.</span> Anthropic's research team started with about 20 real queries, because early changes have big effects (30% → 80% from one prompt tweak). <span class="cite"><a href="https://www.anthropic.com/engineering/multi-agent-research-system">Multi-agent research system</a>.</span></p>
+
+<p><strong>Agent evals: the vocabulary.</strong> <em>Task</em> = one test with inputs and success criteria. <em>Trial</em> = one attempt; run several because outputs vary. <em>Transcript</em> = the full record (tool calls, reasoning). <em>Outcome</em> = the final environment state, e.g. "does the reservation exist in the DB", not "did the agent say it booked". <strong>Grade what the agent produced, not the path it took</strong>: exact tool-sequence checks reject valid routes. Use partial credit for multi-part tasks and start each trial from a clean environment. <span class="cite"><a href="https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents">Demystifying evals</a>.</span></p>
+
+<table>
+<thead><tr><th></th><th>pass@k</th><th>pass^k</th></tr></thead>
+<tbody>
+<tr><td>Meaning</td><td>≥ 1 of k trials succeeds</td><td>All k trials succeed</td></tr>
+<tr><td>As k grows</td><td>Rises toward 100%</td><td>Falls toward 0%</td></tr>
+<tr><td>Example (75% per trial, k = 3)</td><td>1 − 0.25³ ≈ 98%</td><td>0.75³ ≈ 42%</td></tr>
+<tr><td>Use when</td><td>One success is enough (e.g. a tool that proposes options)</td><td>Users expect it to work every time (customer-facing)</td></tr>
+</tbody>
+</table>
+<p class="cite"><a href="https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents">Demystifying evals</a> (pass^k example and definitions; the pass@k figure is computed from the same definition).</p>
+
+<p><strong>Capability vs regression.</strong> Capability evals ask "what can it do?" and should start at a <em>low</em> pass rate. Regression evals ask "does it still do what it did?" and should sit near <em>100%</em>. Passing capability tasks graduate into the regression suite. A 0% pass rate across many trials usually means a broken task, so check each task with a reference solution. <strong>Read the transcripts</strong>: Opus 4.5 first scored 42% on CORE-Bench; after fixing grader and spec bugs (e.g. rigid grading that rejected "96.12") and loosening the scaffold, it scored 95%. <span class="cite"><a href="https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents">Ibid.</a></span></p>
+
+<p><strong>Offline first, then online, then watch (Swiss cheese).</strong> No single layer catches everything. Automated evals are reproducible and run on every commit, but give false confidence if they don't match real usage. <em>A/B tests</em> measure real outcomes and control for confounds, but are slow: "days or weeks to reach significance". Production monitoring is ground truth but <em>reactive</em>. User feedback is sparse and self-selected. Manual transcript review catches subtle issues but doesn't scale. <span class="cite"><a href="https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents">Ibid.</a></span> For long-running agents, Anthropic shifts traffic gradually with <em>rainbow deployments</em>. <span class="cite"><a href="https://www.anthropic.com/engineering/multi-agent-research-system">Multi-agent research system</a>.</span> For a model or cost change, Anthropic's method ends: "run the winner in shadow on a traffic slice before cutover, then keep the suite running". <span class="cite"><a href="https://platform.claude.com/docs/en/about-claude/models/optimizing-for-cost-and-intelligence">Optimizing for cost and intelligence</a>.</span> Change <em>one variable at a time</em> (prompt, model, effort or retrieval) so you can attribute any movement. <span class="cite">General experimentation practice; no single Anthropic doc prescribes it.</span></p>
+
+<p><strong>Is the difference real?</strong> An eval score is a sample estimate. Report the <em>standard error of the mean</em> (95% CI ≈ mean ± 1.96 × SEM). Cluster the standard errors when questions come in groups (they can be over 3× naive SEs). Resample each question several times to cut noise. Compare two prompts or models with a <strong>paired-differences</strong> test on the same questions. Use <em>power analysis</em> to size the eval before running it. <span class="cite"><a href="https://www.anthropic.com/research/statistical-approach-to-model-evals">A statistical approach to model evals</a>.</span> For agent evals, the environment adds noise too: resource settings alone moved a Terminal-Bench 2.0 score by 6 points, so treat gaps under ~3 points with suspicion until configs match, and run on several days. <span class="cite"><a href="https://www.anthropic.com/engineering/infrastructure-noise">Quantifying infrastructure noise in agentic coding evals</a>.</span></p>
+
+<h3>Diagnose: which failure is it?</h3>
+<table>
+<thead><tr><th>Evidence</th><th>Likely cause</th><th>Fix</th></tr></thead>
+<tbody>
+<tr><td>Instruction ignored or format wrong; output shifts when you reword the prompt</td><td>Prompt failure</td><td>Clarify instructions, add examples or structure, re-run the eval</td></tr>
+<tr><td>Correct passage <em>was</em> in context, yet the answer contradicts it or invents facts</td><td>Hallucination (generation)</td><td>Allow "I don't know"; quote first; cite-and-verify; restrict to the provided docs</td></tr>
+<tr><td>Correct passage <em>not</em> in the retrieved chunks; often starts after a re-index, refresh or embedding change</td><td>Retrieval failure</td><td>Fix index or chunking; measure recall@k; hybrid BM25 + rerank</td></tr>
+<tr><td>Fails across several prompt variants; a stronger model or higher effort passes the same eval</td><td>Model mismatch</td><td>Route hard cases up, raise effort, or change model</td></tr>
+<tr><td>Score low, but transcripts show valid solutions</td><td>Grader bug</td><td>Fix the grader or task spec</td></tr>
+</tbody>
+</table>
+<p class="cite">Sources: <a href="../sources/ccar-p-exam-guide.pdf">Exam guide sample 3</a>; <a href="https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/reduce-hallucinations">Reduce hallucinations</a>; <a href="https://platform.claude.com/docs/en/about-claude/models/choosing-a-model">Choosing a model</a>; <a href="https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents">Demystifying evals</a>. The table's framing is ours; the techniques are from the sources.</p>
+
+<p><strong>Reducing hallucination.</strong> The basics: let Claude say "I don't know"; for long docs (over 20k tokens), extract word-for-word quotes first and answer only from them; make every claim cite a quote, and retract any claim without one. Advanced: review the summarized thinking when an answer looks wrong, run best-of-N and compare (inconsistency is a hallucination signal), iterate on the output, and restrict Claude to the provided documents. These techniques reduce hallucination but don't eliminate it, so validate high-stakes output. <span class="cite"><a href="https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/reduce-hallucinations">Reduce hallucinations</a>.</span></p>
+
+<h3>Optimize cost, tokens and latency</h3>
+<p>Get the prompt working first, then optimise. Cutting latency too early "might prevent you from discovering what top performance looks like". <span class="cite"><a href="https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/reduce-latency">Reduce latency</a>.</span> Anthropic sorts cost levers into two kinds. <strong>Free wins</strong> cut spend without touching quality: caching, token trimming, batch, a prompt audit, and workspace spend limits as the backstop. <strong>Trade-offs</strong> swap cost for intelligence: model choice, effort, output caps and task budgets, multi-model designs. Caching was the largest lever by far in their measurements (agent-loop cost cut 2.7–5.3×). Compare models on <strong>cost per completed task, not per token</strong>: a stronger model often finishes in fewer turns, so its higher token price can still win (but not always, so measure). <span class="cite"><a href="https://platform.claude.com/docs/en/about-claude/models/optimizing-for-cost-and-intelligence">Optimizing for cost and intelligence</a>.</span></p>
+<table>
+<thead><tr><th>Lever</th><th>What it buys</th><th>Key facts (as of Oct 2026)</th></tr></thead>
+<tbody>
+<tr><td>Prompt caching</td><td>Cost and TTFT on repeated prefixes</td><td>5-min write 1.25×, 1-h write 2×, read 0.1× base input (0.05× on Opus 5.5 and Sonnet 5.5; 0.025× on Fable 5.1). Turn on with one top-level <code>cache_control</code> (automatic caching) or up to 4 explicit breakpoints. Needs an exact prefix (tools → system → messages) and a minimum length (512 tokens on current models). Healthy agent loops read ~84% of input from cache (median); below ~80%, something is breaking it.</td></tr>
+<tr><td>Message Batches API</td><td>50% off input and output</td><td>Async; most batches finish in under 1 h; expire at 24 h; up to 100k requests / 256 MB. Stacks with caching; use the 1-h TTL for batches.</td></tr>
+<tr><td>Model choice and tiering</td><td>Most tokens billed at a lower rate</td><td>Haiku 5.5 for lowest latency and price (prompts over 100k tokens pay a higher rate). Route hard cases up, add an <em>advisor tool</em> (beta: a cheap executor consults a frontier model mid-task) or delegate bulk work to cheaper workers.</td></tr>
+<tr><td>Effort</td><td>Tokens, latency, cost within one model</td><td>low · medium · high · xhigh · max; default <code>medium</code> on Opus 5.5 and Haiku 5.5, <code>high</code> elsewhere. Affects all output tokens incl. tool calls. "Often a better lever than switching models." Changing top-level effort invalidates cached message blocks; per-message effort (beta) keeps the cache.</td></tr>
+<tr><td>Output length and budgets</td><td>Latency and output cost</td><td>Ask for concision; sentence or paragraph limits beat word counts. <code>max_tokens</code> is a blunt, invisible safety cap: lowering it didn't cut cost per solved task. A <em>task budget</em> (beta) shows the model a token countdown so it self-regulates.</td></tr>
+<tr><td>Streaming</td><td>Perceived latency (TTFT)</td><td>Doesn't reduce cost or total time; users see output as it's generated.</td></tr>
+<tr><td>Fast mode (research preview)</td><td>Output speed</td><td>Up to 2.5× output tokens/s on Opus 5.5, Opus 5, Opus 4.8 at premium price (Opus 5.5: 2×). Helps tokens/s, not TTFT; Claude API only; not with Batch.</td></tr>
+</tbody>
+</table>
+<p class="cite">Sources: <a href="https://platform.claude.com/docs/en/about-claude/pricing">Pricing</a>; <a href="https://platform.claude.com/docs/en/build-with-claude/prompt-caching">Prompt caching</a>; <a href="https://platform.claude.com/docs/en/build-with-claude/batch-processing">Batch processing</a>; <a href="https://platform.claude.com/docs/en/about-claude/models/choosing-a-model">Choosing a model</a>; <a href="https://platform.claude.com/docs/en/agents-and-tools/tool-use/advisor-tool">Advisor tool</a>; <a href="https://platform.claude.com/docs/en/build-with-claude/effort">Effort</a>; <a href="https://platform.claude.com/docs/en/about-claude/models/optimizing-for-cost-and-intelligence">Optimizing for cost and intelligence</a>; <a href="https://platform.claude.com/docs/en/build-with-claude/fast-mode">Fast mode</a>; <a href="https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/reduce-latency">Reduce latency</a>.</p>
+
+<p><strong>Monitor: close the loop.</strong> Observability tooling is covered in <a href="0004-integration-rag-observability.html">lesson 4</a>. The D4 angle: tracing is what turns non-deterministic failures into fixable ones ("full production tracing let us diagnose why agents failed"). Feed every production failure back into the eval set as a new task. <span class="cite"><a href="https://www.anthropic.com/engineering/multi-agent-research-system">Multi-agent research system</a>; <a href="https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents">Demystifying evals</a>.</span> For cost, log each response's <code>usage</code> (uncached input, cache writes, cache reads, output) and price it as <em>cost per task</em>. At org level, the Console <strong>Usage</strong> and <strong>Cost</strong> pages and the <strong>Usage &amp; Cost Admin API</strong> (Admin API key) give the reconciled totals for dashboards, alerting and finance. <span class="cite"><a href="https://platform.claude.com/docs/en/manage-claude/usage-cost-api">Usage and Cost API</a>; <a href="https://platform.claude.com/docs/en/about-claude/models/optimizing-for-cost-and-intelligence">Optimizing for cost and intelligence</a>.</span></p>
+
+<!-- ============================================================ -->
+<h2>3 · Practice</h2>
+
+<div class="q" data-topic="d4" data-answer="0">
+  <p class="stem">A product owner writes the success criterion "the summariser should be accurate and fast". Which rewrite best follows Anthropic's guidance?</p>
+  <ol class="options">
+    <li>90% of 500 held-out summaries pass the accuracy rubric; p95 under 3s</li>
+    <li>All summaries should be accurate, readable, and much faster than they are</li>
+    <li>Reviewers should feel satisfied with summary quality and speed after the pilot</li>
+    <li>The summariser should match top model quality at the lowest possible cost</li>
+  </ol>
+  <div class="explain">Good criteria are <strong>specific, measurable, achievable, relevant</strong>, and usually cover several dimensions (here accuracy and latency) on a defined test set. The others are vague ("much faster", "satisfied", "top model quality") with no test set or threshold. <span class="cite"><a href="https://platform.claude.com/docs/en/test-and-evaluate/develop-tests">Define success criteria and build evaluations</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d4" data-answer="0">
+  <p class="stem">An intent classifier assigns each support message one of 14 labels. You have 3,000 human-labelled messages. Which grading method should the eval use?</p>
+  <ol class="options">
+    <li>Code-based exact match of predicted label against the human label</li>
+    <li>LLM judge rating every predicted label on a one-to-five scale</li>
+    <li>Human reviewers re-checking each prediction by reading the full message</li>
+    <li>Embedding similarity between the predicted label and the message text</li>
+  </ol>
+  <div class="explain">Pick the "fastest, most reliable, most scalable" grader. With gold labels, <strong>exact match</strong> is the answer. An LLM judge adds cost and non-determinism for no gain. Human grading is slow ("avoid if possible"). Similarity to the <em>message text</em> doesn't measure correctness. <span class="cite"><a href="https://platform.claude.com/docs/en/test-and-evaluate/develop-tests">Develop tests</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d4" data-answer="0,1">
+  <p class="stem">You will grade the tone of 2,000 customer-service replies with an LLM judge. Which <strong>two</strong> practices most improve the judge's reliability? (Choose two.)</p>
+  <ol class="options">
+    <li>A detailed rubric with an explicit, constrained output like a 1–5 score</li>
+    <li>First calibrating the judge's grades against a sample graded by human experts</li>
+    <li>Asking for a long open-ended qualitative critique instead of any numeric score</li>
+    <li>Running the judge only on the replies that customers already rated poorly</li>
+  </ol>
+  <div class="explain">Docs: use <strong>detailed, clear rubrics</strong> and empirical output (correct/incorrect or 1–5), and run the grader with thinking on so it reasons before scoring. The agent-evals post: <strong>calibrate LLM judges against human experts</strong>, and give the judge an "Unknown" option. Purely qualitative critiques are "hard to assess quickly and at scale". Grading only poorly-rated replies is a biased, one-sided sample. <span class="cite"><a href="https://platform.claude.com/docs/en/test-and-evaluate/develop-tests">Develop tests</a>; <a href="https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents">Demystifying evals</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d4" data-answer="0">
+  <p class="stem">A customer-facing booking agent succeeds on 80% of trials for a task. Customers expect it to work every time. Over three independent trials, what is pass^3?</p>
+  <ol class="options">
+    <li>About 51%: all three succeed only half the time</li>
+    <li>About 99%: at least one of three attempts succeeds</li>
+    <li>About 80%: the rate stays fixed as k grows</li>
+    <li>About 24%: three times the twenty percent failure rate</li>
+  </ol>
+  <div class="explain"><strong>pass^k = p^k</strong> = 0.8³ ≈ 0.51: the chance that <em>all</em> k trials succeed. 99% is <em>pass@3</em> (at least one success, 1 − 0.2³), the right metric only when one success is enough. For customer-facing reliability, pass^k is the honest number. <span class="cite"><a href="https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents">Demystifying evals</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d4" data-answer="0">
+  <p class="stem">A team builds an eval suite for multi-step refund handling, a capability the agent doesn't have yet. It passes 12% today, and every task has a verified reference solution. A colleague says the suite is broken and should be dropped. Best response?</p>
+  <ol class="options">
+    <li>Keep it: a capability eval should start low and give a target</li>
+    <li>Drop it: any eval suite under 90% means the graders are broken</li>
+    <li>Merge it into the regression suite so it runs on every commit</li>
+    <li>Replace it with easier tasks until the pass rate exceeds 80 percent</li>
+  </ol>
+  <div class="explain"><strong>Capability evals start low</strong>; <em>regression</em> evals sit near 100%. Merging a 12% suite into regression would make that suite permanently red. Tasks graduate into regression only once they pass reliably. A 0% rate across many trials would point to a broken task, but these tasks have reference solutions. <span class="cite"><a href="https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents">Demystifying evals</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d4" data-answer="0">
+  <p class="stem">An airline-rebooking agent's eval fails many trials because the grader requires an exact sequence of tool calls. Reading the transcripts, you see the agent often reaches a correct rebooking by a different route. What should change?</p>
+  <ol class="options">
+    <li>Grade the final reservation state in the database, not the path</li>
+    <li>Add prompt instructions forcing the agent to follow the expected sequence</li>
+    <li>Switch to a larger model that follows tool orderings more reliably</li>
+    <li>Lower the pass threshold so partial sequence matches count as passes</li>
+  </ol>
+  <div class="explain">"Grade what the agent produced, not the path it took." Check the <strong>outcome</strong> (end state). Rigid sequence checks reject valid strategies the designers didn't anticipate. This is a grader bug, not an agent bug, so prompt or model changes treat the wrong thing. <span class="cite"><a href="https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents">Demystifying evals</a>; <a href="https://www.anthropic.com/engineering/multi-agent-research-system">Multi-agent research system</a> (end-state evaluation).</span></div>
+</div>
+
+<div class="q" data-topic="d4" data-answer="0">
+  <p class="stem">An HR policy assistant (RAG) gives a wrong parental-leave answer. The trace shows the correct, current policy paragraph <em>was</em> in the retrieved chunks, but the answer states a different number of weeks. Most likely failure and first fix?</p>
+  <ol class="options">
+    <li>Hallucination; have it quote retrieved text before it answers</li>
+    <li>Retrieval failure; re-index the corpus and tune chunk size</li>
+    <li>Model mismatch; move every query to the largest model</li>
+    <li>Stale index; schedule a full document refresh every night</li>
+  </ol>
+  <div class="explain">The right context was present, so retrieval did its job and <strong>generation</strong> went wrong. Ground it: quote first, answer only from the quotes, cite and verify, restrict Claude to the provided docs. Contrast with official sample 3, where the right chunks were <em>missing</em> after a refresh, which points to retrieval. Jumping to the biggest model skips the diagnosis. <span class="cite"><a href="https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/reduce-hallucinations">Reduce hallucinations</a>; <a href="../sources/ccar-p-exam-guide.pdf">Exam guide §8</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d4" data-answer="0,1">
+  <p class="stem">A due-diligence tool summarises 80-page contracts, and reviewers find occasional invented clauses. Which <strong>two</strong> prompt changes does Anthropic recommend to reduce this? (Choose two.)</p>
+  <ol class="options">
+    <li>Permit the model to say it lacks enough information to answer</li>
+    <li>Extract word-for-word quotes first, then base the analysis only on them</li>
+    <li>Encourage the model to fill gaps using its broad general knowledge</li>
+    <li>Ask for a single long answer with no follow-up verification step</li>
+  </ol>
+  <div class="explain">Basic techniques: <strong>allow "I don't know"</strong> and <strong>use direct quotes for grounding</strong> on long documents (over 20k tokens). The docs say the opposite of the distractors: restrict Claude to the provided documents, and verify with citations, best-of-N or iterative refinement. <span class="cite"><a href="https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/reduce-hallucinations">Reduce hallucinations</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d4" data-answer="0,1">
+  <p class="stem">Prompt B scores 83% and prompt A 80% on the same 150-question eval. A stakeholder wants to ship B today. Which <strong>two</strong> analyses should you run before claiming B is better? (Choose two.)</p>
+  <ol class="options">
+    <li>A paired-differences test on each question's scores for both</li>
+    <li>Confidence intervals from the standard error of each mean</li>
+    <li>A rerun covering only the questions that A failed</li>
+    <li>A comparison of average output length between both prompts</li>
+  </ol>
+  <div class="explain">Report the <strong>SEM / 95% CI</strong> with every score. When both variants answer the same questions, use a <strong>paired-differences</strong> analysis: it removes question-difficulty variance and shrinks the error. Use power analysis to check whether 150 questions can detect a 3-point gap at all. Rerunning only A's failures is biased (regression to the mean), and output length isn't quality. <span class="cite"><a href="https://www.anthropic.com/research/statistical-approach-to-model-evals">Statistical approach to model evals</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d4" data-answer="0,1">
+  <p class="stem">Every night an insurer classifies about 200,000 claim notes. Each request shares the same 6,000-token instruction block, and results are needed by 8 a.m. Which <strong>two</strong> changes cut cost most without hurting accuracy? (Choose two.)</p>
+  <ol class="options">
+    <li>Submit the nightly job through the Message Batches API</li>
+    <li>Cache the shared instruction prefix, using the one-hour TTL</li>
+    <li>Truncate the instruction block to its first 1,000 tokens</li>
+    <li>Raise the effort level so fewer requests need retries</li>
+  </ol>
+  <div class="explain"><strong>Batch</strong>: 50% off input and output; most batches finish in under 1 h (24 h max), which fits overnight. <strong>Caching</strong> stacks with the batch discount; reads cost 0.1× base input (0.05× on Opus 5.5 and Sonnet 5.5), and the docs suggest the 1-h TTL because batches can take longer than 5 minutes. Truncating drops needed policy (the official sample 2 distractor). Higher effort <em>adds</em> tokens. <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/batch-processing">Batch processing</a>; <a href="https://platform.claude.com/docs/en/about-claude/pricing">Pricing</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d4" data-answer="0">
+  <p class="stem">Users of an internal chat assistant say they stare at a blank screen for several seconds before anything appears. Total generation time is acceptable. Most direct fix?</p>
+  <ol class="options">
+    <li>Stream responses so the first tokens appear right away</li>
+    <li>Move the whole workload to the Message Batches API</li>
+    <li>Enable fast mode for higher output tokens per second</li>
+    <li>Add several more few-shot examples to the system prompt</li>
+  </ol>
+  <div class="explain">The complaint is perceived latency, i.e. <strong>time to first token</strong>. Streaming shows output as it's generated. Batch is async (minutes to hours). Fast mode raises output tokens per second, "not time to first token", and costs a premium, while total time is already fine. More examples add prompt tokens, which can add latency. <span class="cite"><a href="https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/reduce-latency">Reduce latency</a>; <a href="https://platform.claude.com/docs/en/build-with-claude/fast-mode">Fast mode</a>.</span></div>
+</div>
+
+<div class="q" data-topic="d4" data-answer="0">
+  <p class="stem">A contract-risk agent runs on Haiku. On the eval, multi-step reasoning cases fail across five prompt revisions, and the same cases pass on Opus. Simple extraction cases pass on both. Best architectural response?</p>
+  <ol class="options">
+    <li>Route the complex reasoning cases to the stronger model only</li>
+    <li>Keep rewriting the prompt until the small model passes everything</li>
+    <li>Send every case, simple or complex, to the stronger model</li>
+    <li>Add retrieval of more documents for the failing reasoning cases</li>
+  </ol>
+  <div class="explain">Failures that survive prompt variants but disappear on a stronger model point to <strong>model mismatch</strong> on that slice. <strong>Route</strong> (tiering): easy cases stay cheap, hard ones escalate. Moving everything wastes money on cases Haiku already passes. Also try raising effort, which is "often a better lever than switching models", or let Haiku consult a stronger model through the advisor tool. Nothing suggests missing context. <span class="cite"><a href="https://platform.claude.com/docs/en/about-claude/models/choosing-a-model">Choosing a model</a>; <a href="https://platform.claude.com/docs/en/agents-and-tools/tool-use/advisor-tool">Advisor tool</a>; <a href="https://www.anthropic.com/engineering/building-effective-agents">Building effective agents</a> (routing).</span></div>
+</div>
+
+<div class="q" data-topic="d4" data-answer="0">
+  <p class="stem">A team picks a mid-tier model over a frontier model for its coding agent because the frontier model's price per token is five times higher. Which measure should decide the choice?</p>
+  <ol class="options">
+    <li>Cost per completed task, measured on the team's own eval</li>
+    <li>List price per million output tokens from the pricing page</li>
+    <li>Average input tokens per request across a full day's traffic</li>
+    <li>Public leaderboard score divided by each model's list token price</li>
+  </ol>
+  <div class="explain">"Compare models on cost per completed task", not per token. A stronger model often needs fewer turns, less searching and less backtracking. In Anthropic's runs, Fable 5.1 at <code>low</code> solved 11 more points of tasks than Sonnet 5 for 35% less per solved task, despite a 5× token price. It doesn't always win, so measure on your own tasks. List price and tokens per request ignore whether the task got done. Leaderboards aren't your workload. <span class="cite"><a href="https://platform.claude.com/docs/en/about-claude/models/optimizing-for-cost-and-intelligence">Optimizing for cost and intelligence</a>.</span></div>
+</div>
+
+<!-- ============================================================ -->
+<h2>4 · Architect scenario</h2>
+
+<div class="callout">
+<p><strong>Calder Mutual</strong>, a health insurer, runs a member-benefits assistant: RAG over 3,000 policy documents on a mid-tier model, about 1.2M questions a month. The CFO wants a 40% cost cut, and an engineer proposes "just switch everything to Haiku". Compliance has one red line: the assistant must never state coverage that isn't in the policy. Last month, right after the quarterly policy refresh, complaints about wrong answers doubled. There is no eval suite today. Logs keep request and response text, but not retrieved chunks or token usage.</p>
+</div>
+
+<div class="recall" data-topic="d4" data-title="Scenario: Calder Mutual eval and optimization plan">
+  <p class="prompt"><strong>(8 min)</strong> (a) Write 3–4 success criteria covering accuracy, safety, latency and cost. (b) Design the eval set and graders. (c) How do you investigate the complaint spike? (d) How do you hit the cost target, and how do you decide on Haiku and roll it out?</p>
+  <textarea placeholder="(a) … (b) … (c) … (d) …"></textarea>
+  <div class="model">
+    <p>(a) E.g. ≥ 95% of golden-set answers judged correct; <strong>0 unsupported coverage claims</strong> on a 500-case faithfulness set (each claim must cite a retrieved passage); p95 TTFT under 2 s; cost per answer −40% vs baseline. Specific, measurable, on a named test set.<br>
+    (b) Start with ~50 real failures from the complaint queue, then grow. Golden set with reference answers from benefits experts. Edge cases: missing info, out-of-scope, ambiguous, and very long member messages. Balanced "should answer" and "should decline" cases. Graders: <strong>code</strong> for citation presence and format; an <strong>LLM judge</strong> with a rubric (correctness, faithfulness to quotes, "Unknown" allowed), <strong>calibrated</strong> against expert human labels; a small human spot-check each release. A separate retrieval eval (recall@k).<br>
+    (c) It started at the refresh, so suspect <strong>retrieval/indexing first</strong> (sample 3). Add tracing of retrieved chunks. For failing cases, check whether the right passage was retrieved. If not, it's retrieval (re-index, chunking, hybrid + rerank). If it was, it's hallucination (quote-first, cite-and-verify, "I don't know"). Turn every confirmed failure into a regression case.<br>
+    (d) Free wins first: <strong>cache</strong> the static system prompt and policy preamble, trim unneeded tokens and output length, and batch any offline jobs (e.g. nightly summaries). Then trade-offs: sweep <strong>effort</strong> down on the current model. For Haiku: run the same eval on both models, compare <strong>cost per correct answer</strong> (not per token; note Haiku 5.5's higher rate for prompts over 100k tokens), report CIs and a <strong>paired-differences</strong> comparison, and check the faithfulness red line per slice. Likely result: <strong>route</strong> simple FAQs to Haiku and escalate complex cases. Then run the winner in shadow on a traffic slice and roll out one change at a time, while monitoring cost per answer (usage fields plus the Usage &amp; Cost API), cache-read share and complaint rate.</p>
+    <ul class="rubric">
+      <li>Measurable multi-dimensional criteria incl. a hard safety threshold</li>
+      <li>Eval set seeded from real failures + golden + edge + balanced cases</li>
+      <li>Mixed graders; LLM judge calibrated against humans</li>
+      <li>Retrieval checked first for the post-refresh spike; trace retrieved chunks</li>
+      <li>Distinguishes retrieval failure from hallucination with evidence</li>
+      <li>Caching / effort / output length before or alongside model change</li>
+      <li>Model switch decided by paired eval + CIs on cost per correct answer; routing rather than all-or-nothing</li>
+      <li>Staged rollout, one change at a time, with monitoring feeding the eval set</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>5 · Go deeper</h2>
+
+<div class="callout source">
+<p><strong>Primary source (read this):</strong> Anthropic, <a href="https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents">"Demystifying evals for AI agents"</a>. It covers the agent-eval vocabulary (task, trial, transcript, outcome), grader trade-offs, pass@k vs pass^k, capability vs regression, and the Swiss-cheese view of evals vs A/B tests vs monitoring. Most D4 questions can be answered from it. For the cost side, read <a href="https://platform.claude.com/docs/en/about-claude/models/optimizing-for-cost-and-intelligence">"Optimizing for cost and intelligence"</a>: free wins vs trade-offs, with measured results per lever.</p>
+</div>
+
+<div class="callout ask">
+<p><strong>Ask your teacher.</strong> Anything unclear, or you disagree with an answer? Ask in the chat. If your Partner Academy notes say otherwise, tell me and the lesson gets fixed.</p>
+</div>
+
+<div id="scoreboard" class="scoreboard"></div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch. 8: Architectural patterns</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-lesson="0008-architectural-patterns">
+
+<nav class="crumbs"><a href="../index.html">Course map</a> · <a href="../reference/glossary.html">Glossary</a> · Prev: <a href="0007-modeling-the-dimension-of-time.html">Ch. 7</a> · Next: <a href="0009-communication-patterns.html">Ch. 9</a></nav>
+
+<div class="kicker">Chapter 8</div>
+<h1>Architectural patterns</h1>
+<p class="subtitle">Business-logic patterns decide how the rules are written. Architectural patterns decide how those rules connect to everything else.</p>
+
+<div class="meta">
+  <span>≈ 12 minutes</span>
+  <span>2 review + 7 questions + 1 scenario</span>
+  <span><span class="tag tactical">Part II</span></span>
+</div>
+
+<!-- ============================================================ -->
+<h2>0 · Spaced review: ch. 4 &amp; 7</h2>
+
+<div class="q" data-topic="tactical" data-answer="2">
+  <p class="stem">Which operation does an event store <strong>never</strong> allow?</p>
+  <ol class="options">
+    <li>Appending events to a stream</li>
+    <li>Reading a stream from start</li>
+    <li>Modifying or deleting appended events</li>
+    <li>Projecting events into read models</li>
+  </ol>
+  <div class="explain">The event store is <strong>append-only</strong>, and history is immutable. Data deletion is handled with a forgettable payload, not by rewriting events. <span class="cite">Ch. 7.</span></div>
+</div>
+
+<div class="q" data-topic="strategic" data-answer="1">
+  <p class="stem">Your core context consumes a legacy upstream system with a messy, unstable model. Its team won't adapt to your needs. What protects your model?</p>
+  <ol class="options">
+    <li>Conformist relationship</li>
+    <li>Anticorruption layer</li>
+    <li>Shared kernel</li>
+    <li>Separate ways</li>
+  </ol>
+  <div class="explain">An <strong>anticorruption layer</strong> translates the upstream model into yours. Conformist would import the mess into your core. <span class="cite">Ch. 4.</span></div>
+</div>
+
+<!-- ============================================================ -->
+<h2>1 · Recall first</h2>
+
+<div class="recall" data-topic="warmup" data-title="Architecture recall">
+  <p class="prompt">Without looking: (a) Name the layers of layered architecture, what lives in each, and which optional layer can be added. (b) In ports &amp; adapters, which way do dependencies point? (c) What does CQRS separate, and what are read models?</p>
+  <textarea placeholder="(a) …&#10;(b) …&#10;(c) …"></textarea>
+  <div class="model">
+    <p>(a) <strong>Presentation</strong>: the program's public interface (UI, API, CLI, message subscriptions). <strong>Business logic</strong>: the rules. <strong>Data access</strong>: databases, message buses, external providers. Dependencies point downward only. The optional <strong>service layer</strong> sits between presentation and business logic, orchestrates operations, and manages transactions.<br>
+    (b) <strong>Inward</strong>. Business logic is at the center and depends on nothing. It declares <em>ports</em> (interfaces), and the infrastructure provides <em>adapters</em> that implement them. That's dependency inversion.<br>
+    (c) It separates the <strong>command execution model</strong> (strongly consistent, the source of truth) from any number of <strong>read models</strong>: precomputed projections, possibly in different databases, that can be rebuilt from the source of truth.</p>
+    <ul class="rubric">
+      <li>Three layers with correct contents</li>
+      <li>Service layer: orchestration + transactions</li>
+      <li>Ports &amp; adapters: dependencies point inward, via interfaces</li>
+      <li>CQRS: one command model, many rebuildable read models</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>2 · The ideas that matter</h2>
+
+<p><strong>Why architecture matters.</strong> Business logic shouldn't be scattered through UI handlers and SQL. Architectural patterns decide how the business logic relates to its inputs, outputs, and infrastructure. <span class="cite">Ch. 8.</span></p>
+
+<p><strong>Layered architecture.</strong> Three layers: presentation, business logic, and data access. Each depends only on the layer below it. "Presentation" means any public interface, including APIs and message consumers. An optional <strong>service layer</strong> (also called the application layer) acts as a facade. It orchestrates use cases, manages transactions, and keeps presentation thin. The layered pattern fits transaction script and active record well.</p>
+
+<p><strong>Ports &amp; adapters</strong> (also called hexagonal). It flips the dependency between business logic and infrastructure. The business logic sits at the center with no infrastructure dependencies, and infrastructure implements the business logic's interfaces. Onion and clean architecture follow the same principle. Because the domain model is kept free of technology, this pattern fits it well.</p>
+
+<p><strong>CQRS.</strong> Separate the model that executes commands from the models that serve queries. There's one strongly consistent command model, and as many read models as you need, each in whatever store suits it (<em>polyglot persistence</em>). Read models are read-only <strong>projections</strong> that can always be rebuilt. Projections can be <em>synchronous</em> (catching up from the source of truth with a checkpoint) or <em>asynchronous</em> (fed through a message bus, which brings ordering and duplication problems). CQRS is essential for an event-sourced domain model, because an event stream can't be queried flexibly.</p>
+
+<p><strong>Scope.</strong> These patterns aren't system-wide. Choose them <strong>per component</strong>, such as per bounded context, based on the business logic inside it.</p>
+
+<p class="cite">See also <a href="https://martinfowler.com/bliki/CQRS.html">Fowler, "CQRS"</a>.</p>
+
+<!-- ============================================================ -->
+<h2>3 · Practice</h2>
+
+<div class="q" data-topic="tactical" data-answer="2">
+  <p class="stem">In layered architecture, a component that subscribes to a message bus and triggers business logic belongs to which layer?</p>
+  <ol class="options">
+    <li>Domain layer</li>
+    <li>Data-access layer</li>
+    <li>Presentation layer</li>
+    <li>Service layer</li>
+  </ol>
+  <div class="explain">The <strong>presentation layer</strong> is the program's public interface: UI, API, CLI, <em>and</em> message subscriptions. The message bus used for <em>outgoing</em> events sits in data access.</div>
+</div>
+
+<div class="q" data-topic="tactical" data-answer="1">
+  <p class="stem">What is the service layer's job?</p>
+  <ol class="options">
+    <li>Holds the core business rules and invariants themselves</li>
+    <li>Orchestrates business logic and manages transactions for clients</li>
+    <li>Maps database rows to objects for all queries</li>
+    <li>Renders the user interface and validates form input</li>
+  </ol>
+  <div class="explain">It's a <strong>facade</strong>: it exposes use cases, orchestrates calls into the business logic, and wraps them in transactions. The business rules themselves live in the business-logic layer.</div>
+</div>
+
+<div class="q" data-topic="tactical" data-answer="3">
+  <p class="stem">In ports &amp; adapters, which way do dependencies point?</p>
+  <ol class="options">
+    <li>Business logic depends on the infrastructure's concrete classes</li>
+    <li>Presentation depends on data access, skipping business logic</li>
+    <li>All layers depend on a shared utilities module</li>
+    <li>Infrastructure depends on interfaces the business logic defines</li>
+  </ol>
+  <div class="explain"><strong>Dependency inversion.</strong> The business logic owns the ports (interfaces), and infrastructure adapters implement them. That keeps the center free of technology concerns.</div>
+</div>
+
+<div class="q" data-topic="tactical" data-answer="2">
+  <p class="stem">Why is ports &amp; adapters a natural fit for a domain model?</p>
+  <ol class="options">
+    <li>It allows the database to enforce all invariants</li>
+    <li>It removes the need for an application layer</li>
+    <li>It keeps business logic free of infrastructure concerns</li>
+    <li>It forces every aggregate into a separate microservice</li>
+  </ol>
+  <div class="explain">A domain model expresses complex rules in pure business terms, and persistence or framework code would pollute it. Ports &amp; adapters <strong>isolates</strong> it. That's why the ch. 10 heuristic pairs the two.</div>
+</div>
+
+<div class="q" data-topic="tactical" data-answer="1">
+  <p class="stem">In CQRS, read models are…</p>
+  <ol class="options">
+    <li>The authoritative source of truth for all commands</li>
+    <li>Precomputed projections that can be rebuilt from scratch</li>
+    <li>Editable copies that commands write to directly first</li>
+    <li>Always stored inside the command model's own database</li>
+  </ol>
+  <div class="explain">Read models are <strong>read-only projections</strong>, and each can use whatever database suits its queries. Because the command model is the source of truth, any read model can be deleted and rebuilt.</div>
+</div>
+
+<div class="q" data-topic="tactical" data-answer="0">
+  <p class="stem">A projection engine pulls new changes from the source of truth, tracking a checkpoint of the last change it processed. What kind of projection is this?</p>
+  <ol class="options">
+    <li>A synchronous projection</li>
+    <li>An asynchronous projection</li>
+    <li>A dual-write strategy</li>
+    <li>A saga process</li>
+  </ol>
+  <div class="explain"><strong>Synchronous</strong> projections catch up from the source of truth using a checkpoint. <em>Asynchronous</em> ones receive changes over a message bus, which brings ordering and duplicate-delivery problems and makes rebuilding a projection harder.</div>
+</div>
+
+<div class="q" data-topic="tactical" data-answer="3">
+  <p class="stem">A system has a core context built as a domain model and a supporting CRUD context. Which architecture should the whole system use?</p>
+  <ol class="options">
+    <li>Ports and adapters everywhere, for consistency's sake</li>
+    <li>Layered everywhere, since it's the simplest one</li>
+    <li>CQRS everywhere, so every context can scale</li>
+    <li>Choose per component; patterns needn't be system-wide</li>
+  </ol>
+  <div class="explain">Architectural patterns are chosen <strong>per component</strong>, following the business logic each one contains. Forcing one pattern everywhere either over-engineers the simple parts or under-serves the complex ones.</div>
+</div>
+
+<!-- ============================================================ -->
+<h2>4 · Interview scenario</h2>
+
+<div class="callout">
+<p><strong>ParkLoop</strong> runs a city parking app. <em>Pricing</em> is its edge: surge rules based on live occupancy-sensor feeds, events in the city, and loyalty status, implemented as a domain model. <em>Permits</em> is a set of resident-permit forms with basic validation. <em>Citations</em> is event-sourced because tickets are legal records, and enforcement wants to look up citations by license plate, see daily officer summaries, and view a heatmap of violations.</p>
+</div>
+
+<div class="recall" data-topic="tactical" data-title="Scenario: ParkLoop architecture">
+  <p class="prompt"><strong>(7 min)</strong> Choose an architectural pattern for each of the three contexts and justify each choice. For Pricing, name two ports and their adapters. For Citations, design the read models and say how they're fed.</p>
+  <textarea placeholder="Permits: …&#10;Pricing: … ports/adapters …&#10;Citations: … read models …"></textarea>
+  <div class="model">
+    <table>
+      <thead><tr><th>Context</th><th>Architecture</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td>Permits</td><td>Layered (add a service layer if it uses active record)</td><td>Simple logic. Anything more is overhead.</td></tr>
+        <tr><td>Pricing</td><td>Ports &amp; adapters</td><td>A domain model needs to stay free of sensors, databases, and frameworks.</td></tr>
+        <tr><td>Citations</td><td>CQRS</td><td>Event-sourced, so queries need projections.</td></tr>
+      </tbody>
+    </table>
+    <p><strong>Pricing ports → adapters:</strong> <code>OccupancyFeed</code> → MQTT/HTTP sensor client · <code>TariffRepository</code> → Postgres · <code>EventPublisher</code> → message bus.</p>
+    <p><strong>Citations read models:</strong> <em>CitationsByPlate</em> (key-value) · <em>OfficerDailySummary</em> (relational) · <em>ViolationHeatmap</em> (geo/search index). Feed them with synchronous, checkpointed projections from the event store. Each one can be rebuilt at any time.</p>
+    <ul class="rubric">
+      <li>A different pattern per context, justified by its business logic</li>
+      <li>Permits: layered (service layer only if needed)</li>
+      <li>Pricing: ports &amp; adapters, with ports defined by the domain</li>
+      <li>Named concrete ports and adapters</li>
+      <li>Citations: CQRS with several purpose-built read models</li>
+      <li>Read models described as rebuildable projections</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>Your results</h2>
+<div id="scoreboard" class="scoreboard"></div>
+<p>Copy your results and paste them into the chat. Next up is <strong>ch. 9, Communication Patterns</strong>: getting ParkLoop's events reliably to other contexts.</p>
+
+<div class="callout source">
+<p><strong>Primary source:</strong> <a href="https://www.oreilly.com/library/view/learning-domain-driven-design/9781098100124/">Khononov, <em>Learning Domain-Driven Design</em>, ch. 8</a>. Re-read the CQRS section on projecting read models, and the section on the scope of architectural patterns.</p>
+</div>
+
+<div class="callout ask">
+<p><strong>Questions?</strong> Ask me in the chat. For example: "Can a CQRS command return data?" or "How is clean architecture different from ports &amp; adapters?"</p>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

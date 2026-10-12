@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch. 9: Communication patterns</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-lesson="0009-communication-patterns">
+
+<nav class="crumbs"><a href="../index.html">Course map</a> · <a href="../reference/glossary.html">Glossary</a> · Prev: <a href="0008-architectural-patterns.html">Ch. 8</a> · Next: <a href="0010-design-heuristics.html">Ch. 10</a></nav>
+
+<div class="kicker">Chapter 9</div>
+<h1>Communication patterns</h1>
+<p class="subtitle">How models talk across boundaries without corrupting each other, losing messages, or breaking consistency.</p>
+
+<div class="meta">
+  <span>≈ 12 minutes</span>
+  <span>2 review + 7 questions + 1 scenario</span>
+  <span><span class="tag tactical">Part II</span></span>
+</div>
+
+<!-- ============================================================ -->
+<h2>0 · Spaced review: ch. 5 &amp; 8</h2>
+
+<div class="q" data-topic="tactical" data-answer="1">
+  <p class="stem">Which architecture keeps business logic free of any infrastructure dependency?</p>
+  <ol class="options">
+    <li>Layered architecture</li>
+    <li>Hexagonal architecture</li>
+    <li>Microkernel architecture</li>
+    <li>Monolithic architecture</li>
+  </ol>
+  <div class="explain"><strong>Ports &amp; adapters (hexagonal)</strong>: the business logic defines the ports, and infrastructure implements them. In layered architecture, business logic depends on the data-access layer beneath it. <span class="cite">Ch. 8.</span></div>
+</div>
+
+<div class="q" data-topic="tactical" data-answer="0">
+  <p class="stem">A supporting subdomain with simple logic and simple data structures should be implemented with…</p>
+  <ol class="options">
+    <li>Transaction script</li>
+    <li>Active record</li>
+    <li>Domain model</li>
+    <li>Event-sourced model</li>
+  </ol>
+  <div class="explain">Simple logic over simple data calls for a <strong>transaction script</strong>. Active record pays off only when the data structures are complex. <span class="cite">Ch. 5.</span></div>
+</div>
+
+<!-- ============================================================ -->
+<h2>1 · Recall first</h2>
+
+<div class="recall" data-topic="warmup" data-title="Communication recall">
+  <p class="prompt">Without looking: (a) What's the difference between stateless and stateful model translation? Give an example of each. (b) What problem does the outbox solve, and how? (c) What separates a saga from a process manager?</p>
+  <textarea placeholder="(a) …&#10;(b) …&#10;(c) …"></textarea>
+  <div class="model">
+    <p>(a) <strong>Stateless</strong> translation converts each message or request on the fly. Examples: a proxy in an ACL or open-host service, or a message proxy that filters and transforms events. <strong>Stateful</strong> translation must remember data between messages. Examples: batching many small events into one message, or combining data from several sources.<br>
+    (b) Committing an aggregate and publishing its events can't be one atomic step, so events may be lost or published for changes that never committed. The <strong>outbox</strong> stores the events <em>in the same transaction</em> as the aggregate, and a relay publishes them afterwards. Delivery is at least once.<br>
+    (c) A <strong>saga</strong> matches events to commands: when this happens, do that, with compensating actions when a step fails. A <strong>process manager</strong> is a central, stateful coordinator for flows that need branching logic and an explicit start.</p>
+    <ul class="rubric">
+      <li>Stateless vs stateful, each with a valid example</li>
+      <li>Outbox: same transaction plus a relay</li>
+      <li>At-least-once delivery noted</li>
+      <li>Saga vs process manager: event→command matching vs central stateful logic</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>2 · The ideas that matter</h2>
+
+<p><strong>Model translation.</strong> An anticorruption layer or open-host service needs a translation mechanism. <em>Stateless</em> translation happens on the fly. Synchronously, that's a proxy, which can be centralized in an API gateway. Asynchronously, it's a message proxy that subscribes to domain events, filters them, and transforms them, for example turning <em>private</em> events into <em>public</em> ones. <em>Stateful</em> translation needs its own storage. Two cases: aggregating incoming data (batching many messages into one), and unifying several sources into a single model. <span class="cite">Ch. 9.</span></p>
+
+<p><strong>Integrating aggregates: the outbox.</strong> Domain events must be published only after the aggregate's state is committed. You can't make the database commit and the broker publish atomic. Publish too early and the event may describe a change that rolled back. Publish after the commit and a crash can lose it. The <strong>outbox</strong> commits the events in the same transaction as the aggregate. A <em>relay</em> then reads the unpublished events, by polling or by following the database's transaction log, and publishes them. Delivery is <strong>at least once</strong>, so consumers must be idempotent.</p>
+
+<p><strong>Saga.</strong> A long-running business process that spans several transactions. It listens to events and issues the matching commands, and it runs <em>compensating actions</em> when a step fails. Each aggregate stays strongly consistent, while the process as a whole is <strong>eventually consistent</strong>.</p>
+
+<p><strong>Process manager.</strong> When a flow needs central state and branching ("if the hotel is full, try the next one, else cancel"), a simple event→command saga isn't enough. A process manager is a central coordinator that tracks the process state, decides the next step, and is typically started explicitly.</p>
+
+<p class="cite">See also <a href="https://microservices.io/patterns/data/transactional-outbox.html">microservices.io, "Transactional outbox"</a> and <a href="https://microservices.io/patterns/data/saga.html">"Saga"</a>.</p>
+
+<!-- ============================================================ -->
+<h2>3 · Practice</h2>
+
+<div class="q" data-topic="tactical" data-answer="2">
+  <p class="stem">A downstream service calls an upstream API through a proxy. The proxy converts each response into the downstream model and keeps no data between calls. This is…</p>
+  <ol class="options">
+    <li>Stateful model translation</li>
+    <li>Transactional outbox relay</li>
+    <li>Stateless model translation</li>
+    <li>Saga process coordination</li>
+  </ol>
+  <div class="explain">It translates on the fly, request by request, with no memory between calls, so it's <strong>stateless translation</strong>. It's typical inside an ACL (downstream) or an open-host service (upstream).</div>
+</div>
+
+<div class="q" data-topic="tactical" data-answer="3">
+  <p class="stem">Which of these requires <strong>stateful</strong> model translation?</p>
+  <ol class="options">
+    <li>Renaming fields of each request on the fly</li>
+    <li>Forwarding requests unchanged to the upstream public API</li>
+    <li>Filtering out private events before passing others on</li>
+    <li>Batching many small events into one aggregated message</li>
+  </ol>
+  <div class="explain">Batching means <strong>remembering</strong> the earlier messages until the batch is complete, so it needs state. Filtering and transforming events one at a time is stateless: that's a message proxy.</div>
+</div>
+
+<div class="q" data-topic="tactical" data-answer="1">
+  <p class="stem">Why not simply publish the domain event right after the aggregate commits?</p>
+  <ol class="options">
+    <li>Message brokers cannot accept events coming from aggregates</li>
+    <li>The process may crash between commit and publish</li>
+    <li>Events must be published before any commit happens</li>
+    <li>Publishing after a commit violates the ubiquitous language</li>
+  </ol>
+  <div class="explain">Commit and publish are <strong>two separate writes</strong>. A crash between them loses the event for good. The outbox turns them into one write (the database transaction) followed by a retryable publish.</div>
+</div>
+
+<div class="q" data-topic="tactical" data-answer="0">
+  <p class="stem">What delivery guarantee does an outbox relay give, and what does that require of consumers?</p>
+  <ol class="options">
+    <li>At-least-once delivery; consumers must handle duplicate messages</li>
+    <li>Exactly-once delivery; consumers need no special handling</li>
+    <li>At-most-once delivery; consumers must request lost messages</li>
+    <li>Best-effort delivery; consumers must poll the database</li>
+  </ol>
+  <div class="explain">The relay can crash after publishing but before marking an event as published, so that event gets sent again. Delivery is <strong>at least once</strong>, and consumers must be <em>idempotent</em>.</div>
+</div>
+
+<div class="q" data-topic="tactical" data-answer="2">
+  <p class="stem">When a campaign is activated, it must be submitted to a publishing service. If the publisher rejects it, the campaign is marked as rejected. The component that reacts to these events and issues the commands is a…</p>
+  <ol class="options">
+    <li>Projection</li>
+    <li>Outbox</li>
+    <li>Saga</li>
+    <li>Aggregate</li>
+  </ol>
+  <div class="explain">A <strong>saga</strong> matches events to commands across aggregates or contexts: <em>CampaignActivated → submit for publishing</em>, <em>PublishingRejected → mark rejected</em>. A projection builds read models and never issues commands.</div>
+</div>
+
+<div class="q" data-topic="tactical" data-answer="1">
+  <p class="stem">When does the chapter suggest a process manager instead of a saga?</p>
+  <ol class="options">
+    <li>When only one aggregate is involved in the process</li>
+    <li>When the flow needs central state and branching logic</li>
+    <li>When events must be stored in an outbox table</li>
+    <li>When translating events between two separate contexts' public models</li>
+  </ol>
+  <div class="explain">A saga is a straightforward mapping from events to commands. When the next step depends on accumulated state and if/else decisions, use a <strong>process manager</strong>: a central, explicitly started coordinator.</div>
+</div>
+
+<div class="q" data-topic="tactical" data-answer="3">
+  <p class="stem">A saga coordinates an <code>Order</code> aggregate and a <code>Payment</code> aggregate. Which consistency guarantees hold?</p>
+  <ol class="options">
+    <li>Both aggregates strongly consistent in one shared transaction</li>
+    <li>Neither aggregate is consistent until the saga completes</li>
+    <li>The saga enforces strong consistency with distributed locks</li>
+    <li>Each aggregate strongly consistent; the process eventually consistent</li>
+  </ol>
+  <div class="explain">Sagas don't break the aggregate rule that one transaction changes one aggregate. Each aggregate stays <strong>strongly consistent</strong> inside its own boundary, and the cross-aggregate process becomes <strong>eventually consistent</strong>, with compensations for failures.</div>
+</div>
+
+<!-- ============================================================ -->
+<h2>4 · Interview scenario</h2>
+
+<div class="callout">
+<p><strong>TripNest</strong> books business trips. A traveler's request needs a flight, a hotel, and a rental car, each booked through a different supplier. If the preferred hotel is full, TripNest tries up to two alternatives. If none works, it cancels the flight. Every booking change must reach the <em>Expenses</em> context, a legacy system owned by another team that only accepts one consolidated <em>daily</em> report per traveler.</p>
+</div>
+
+<div class="recall" data-topic="tactical" data-title="Scenario: TripNest flows">
+  <p class="prompt"><strong>(7 min)</strong> (1) How do TripNest's aggregates publish their domain events reliably? (2) Saga or process manager for booking a trip? Sketch the steps, including the failure path. (3) How do you integrate with Expenses?</p>
+  <textarea placeholder="(1) Publishing …&#10;(2) Trip booking flow …&#10;(3) Expenses integration …"></textarea>
+  <div class="model">
+    <p><strong>(1)</strong> <strong>Outbox</strong>: each aggregate's events are committed in the same transaction as its state, and a relay (polling or following the transaction log) publishes them. Delivery is at least once, so consumers dedupe by event ID.</p>
+    <p><strong>(2)</strong> A <strong>process manager</strong>, started explicitly by <code>BookTrip</code>. It holds the trip's state: book the flight → book the hotel → if the hotel is full, try alternative 1, then alternative 2 → if all fail, <em>compensate</em> by cancelling the flight and notifying the traveler → otherwise book the car. The branching and accumulated state are why a plain saga isn't enough. Its commands also go out through the outbox.</p>
+    <p><strong>(3)</strong> <strong>Stateful translation</strong>: a component subscribes to TripNest's <em>public</em> events, accumulates them per traveler, and once a day emits a consolidated report in Expenses's format. That's an ACL-style translator kept outside TripNest's core model, owned by whichever side the teams agree on.</p>
+    <ul class="rubric">
+      <li>Outbox, with the same-transaction write explained</li>
+      <li>Idempotent consumers / at-least-once delivery</li>
+      <li>Chose a process manager and justified it by branching and state</li>
+      <li>Included compensation (cancel the flight)</li>
+      <li>Expenses: stateful translation (aggregating into daily batches)</li>
+      <li>Published public events, not internal/private ones</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>Your results</h2>
+<div id="scoreboard" class="scoreboard"></div>
+<p>Copy your results and paste them into the chat. That completes Part II. Next up is <strong>ch. 10, Design Heuristics</strong>, which ties Parts I and II together into one decision tree.</p>
+
+<div class="callout source">
+<p><strong>Primary source:</strong> <a href="https://www.oreilly.com/library/view/learning-domain-driven-design/9781098100124/">Khononov, <em>Learning Domain-Driven Design</em>, ch. 9</a>. Re-read the outbox and saga sections and the saga-vs-process-manager discussion, then do the exercises.</p>
+</div>
+
+<div class="callout ask">
+<p><strong>Questions?</strong> Ask me in the chat. For example: "Should sagas be orchestrated or choreographed?" or "How does an outbox work with a NoSQL database?"</p>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

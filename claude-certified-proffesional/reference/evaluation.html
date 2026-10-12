@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Evaluation, testing &amp; optimization cheat sheet</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<nav class="crumbs"><a href="../index.html">Course map</a> · From <a href="../lessons/0005-evaluation-testing.html">Lesson 5</a></nav>
+<div class="kicker">Reference · D4</div>
+<h1>Evaluation, testing &amp; optimization</h1>
+<p class="subtitle">Measure first, change one thing, prove it with error bars, then optimise. <span class="cite"><a href="https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents">Demystifying evals for AI agents</a></span></p>
+
+<h2>Success criteria</h2>
+<p class="cite"><a href="https://platform.claude.com/docs/en/test-and-evaluate/develop-tests">Define success criteria and build evaluations</a></p>
+<ul>
+<li><strong>Specific · measurable · achievable · relevant.</strong> Multidimensional: fidelity, consistency, relevance, tone, privacy, context use, latency, price.</li>
+<li>Bad: "safe outputs". Good: "&lt; 0.1% of 10,000 outputs flagged for toxicity". Example set: F1 ≥ 0.85 · 99.5% non-toxic · 95% &lt; 200 ms.</li>
+</ul>
+
+<h2>Eval design &amp; graders</h2>
+<p class="cite"><a href="https://platform.claude.com/docs/en/test-and-evaluate/develop-tests">Develop tests</a>; <a href="https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents">Demystifying evals</a></p>
+<ul>
+<li>Task-specific (real distribution + edge cases) · automate · <strong>volume over quality</strong>.</li>
+<li>Edge cases: irrelevant/missing input, overly long input, harmful input, ambiguous cases.</li>
+<li>Sources: golden set (reference answers) · edge cases · production failures (start with 20–50) · balanced should/shouldn't cases.</li>
+</ul>
+<table>
+<thead><tr><th>Grader</th><th>Strength</th><th>Weakness</th></tr></thead>
+<tbody>
+<tr><td>Code-based</td><td>Fast, cheap, objective, reproducible</td><td>Brittle, no nuance</td></tr>
+<tr><td>LLM-as-judge</td><td>Flexible, scalable, nuance</td><td>Non-deterministic; costlier than code; calibrate vs humans before scaling; detailed rubric; constrained output; grader with thinking on; "Unknown" option; different model ideal</td></tr>
+<tr><td>Human</td><td>Gold standard; calibrates judges</td><td>Slow, expensive; "avoid if possible" for routine</td></tr>
+</tbody></table>
+
+<h2>Agent evals</h2>
+<p class="cite"><a href="https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents">Demystifying evals</a></p>
+<table><tbody>
+<tr><th>Task / trial</th><td>One test case / one attempt. Run several trials; clean environment each time.</td></tr>
+<tr><th>Transcript vs outcome</th><td>Full record vs final environment state. <strong>Grade the outcome, not the path.</strong> Partial credit for multi-part tasks.</td></tr>
+<tr><th>pass@k</th><td>≥ 1 of k succeeds; rises with k. One success is enough.</td></tr>
+<tr><th>pass^k</th><td>All k succeed; falls with k (0.75³ ≈ 42%). Customer-facing consistency.</td></tr>
+<tr><th>Capability vs regression</th><td>Starts low (target) vs ≈ 100% (protect). Capability tasks graduate.</td></tr>
+<tr><th>Hygiene</th><td>Read transcripts (CORE-Bench 42% → 95% after grader/spec fixes); 0% over many trials → broken task; verify with reference solution; watch saturation.</td></tr>
+</tbody></table>
+
+<h2>Iterate &amp; compare</h2>
+<ul>
+<li><strong>Swiss cheese:</strong> automated evals (every commit, may mislead) · A/B (real outcomes, days–weeks) · monitoring (ground truth, reactive) · user feedback (sparse) · transcript review (doesn't scale). <span class="cite"><a href="https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents">Demystifying evals</a></span></li>
+<li>Offline before online; shadow on a traffic slice before cutover, keep the suite running (<a href="https://platform.claude.com/docs/en/about-claude/models/optimizing-for-cost-and-intelligence">cost guide</a>); rainbow deployments for long-running agents (<a href="https://www.anthropic.com/engineering/multi-agent-research-system">multi-agent post</a>); one change at a time (general practice).</li>
+<li><strong>Stats:</strong> report SEM (95% CI ≈ ±1.96 SEM) · cluster SEs for grouped questions (can be &gt; 3×) · resample per question · <strong>paired differences</strong> for A vs B · power analysis to size the eval. <span class="cite"><a href="https://www.anthropic.com/research/statistical-approach-to-model-evals">Statistical approach to model evals</a></span></li>
+<li><strong>Infra noise:</strong> resource settings moved Terminal-Bench 2.0 by 6 pts; distrust gaps &lt; 3 pts until configs match. <span class="cite"><a href="https://www.anthropic.com/engineering/infrastructure-noise">Infrastructure noise</a></span></li>
+</ul>
+
+<h2>Diagnose</h2>
+<table>
+<thead><tr><th>Evidence</th><th>Cause</th><th>Fix</th></tr></thead>
+<tbody>
+<tr><td>Instruction ignored; varies with wording</td><td>Prompt failure</td><td>Clarify, examples, structure</td></tr>
+<tr><td>Right passage in context, answer contradicts it</td><td>Hallucination</td><td>"I don't know" · quote first · cite-and-verify · docs only · best-of-N</td></tr>
+<tr><td>Right passage not retrieved; after refresh/re-index</td><td>Retrieval failure</td><td>Index/chunking; recall@k; BM25 + rerank</td></tr>
+<tr><td>Fails across prompts; stronger model passes</td><td>Model mismatch</td><td>Route up, raise effort, change model</td></tr>
+<tr><td>Valid solutions marked wrong</td><td>Grader bug</td><td>Fix grader/spec</td></tr>
+</tbody></table>
+<p class="cite"><a href="../sources/ccar-p-exam-guide.pdf">Exam guide sample 3</a>; <a href="https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/reduce-hallucinations">Reduce hallucinations</a></p>
+
+<h2>Optimize (as of Oct 2026)</h2>
+<p><strong>Free wins</strong> (no quality cost): caching · token trimming · batch · prompt audit · workspace spend limits. <strong>Trade-offs</strong>: model · effort · output caps / task budgets · multi-model. Caching = biggest lever (agent loops 2.7–5.3× cheaper). Compare models on <strong>cost per completed task</strong>, not per token. <span class="cite"><a href="https://platform.claude.com/docs/en/about-claude/models/optimizing-for-cost-and-intelligence">Optimizing for cost and intelligence</a></span></p>
+<table>
+<thead><tr><th>Lever</th><th>Facts</th></tr></thead>
+<tbody>
+<tr><td>Prompt caching</td><td>Write 1.25× (5 min) / 2× (1 h); read 0.1× base input (0.05× Opus 5.5, Sonnet 5.5; 0.025× Fable 5.1). Automatic (one top-level <code>cache_control</code>) or ≤ 4 explicit breakpoints. Exact prefix tools → system → messages; min 512 tokens on current models. Median agent loop reads ~84% from cache; &lt; 80% → find the break with <a href="https://platform.claude.com/docs/en/build-with-claude/cache-diagnostics">cache diagnostics</a>. <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/prompt-caching">Caching</a>; <a href="https://platform.claude.com/docs/en/about-claude/pricing">Pricing</a></span></td></tr>
+<tr><td>Batch API</td><td>−50% in + out; most &lt; 1 h, expires 24 h; 100k req / 256 MB; stacks with caching (use 1-h TTL). <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/batch-processing">Batch</a>; <a href="https://platform.claude.com/docs/en/about-claude/pricing">Pricing</a></span></td></tr>
+<tr><td>Model tiering</td><td>Haiku 5.5 = lowest latency/price (higher rate for prompts &gt; 100k tokens); route hard cases up; advisor tool (beta, executor consults frontier model) or orchestrator→cheap workers. <span class="cite"><a href="https://platform.claude.com/docs/en/about-claude/models/choosing-a-model">Choosing a model</a>; <a href="https://platform.claude.com/docs/en/agents-and-tools/tool-use/advisor-tool">Advisor tool</a></span></td></tr>
+<tr><td>Effort</td><td>low · medium · high · xhigh · max; default medium on Opus 5.5 / Haiku 5.5, high elsewhere; all output tokens incl. tool calls; often better than switching model; top-level change invalidates cached message blocks; per-message effort (beta) keeps cache. <span class="cite"><a href="https://platform.claude.com/docs/en/build-with-claude/effort">Effort</a>; <a href="https://platform.claude.com/docs/en/build-with-claude/prompt-caching">Caching</a></span></td></tr>
+<tr><td>Budgets</td><td>Task budget (beta) = model sees a token countdown, saves money · <code>max_tokens</code> = invisible safety cap, doesn't cut cost per solved task · workspace spend limit = backstop. <span class="cite"><a href="https://platform.claude.com/docs/en/about-claude/models/optimizing-for-cost-and-intelligence">Cost guide</a></span></td></tr>
+<tr><td>Latency</td><td>Get it working first · smaller model / lower effort · shorter prompt + output (sentence limits &gt; word counts) · <code>max_tokens</code> blunt · stream for TTFT · fast mode (research preview, Opus 5.5/5/4.8): up to 2.5× output tokens/s at premium, not TTFT, no Batch. <span class="cite"><a href="https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/reduce-latency">Reduce latency</a>; <a href="https://platform.claude.com/docs/en/build-with-claude/fast-mode">Fast mode</a></span></td></tr>
+</tbody></table>
+
+<h2>Monitor</h2>
+<ul>
+<li>Trace everything (incl. retrieved chunks, tool calls, token usage); production failures → new eval tasks. Tooling: <a href="../lessons/0004-integration-rag-observability.html">lesson 4</a>. <span class="cite"><a href="https://www.anthropic.com/engineering/multi-agent-research-system">Multi-agent research system</a></span></li>
+<li>Cost: price each response's <code>usage</code> fields → cost per task; org totals via Console Usage / Cost pages and the <strong>Usage &amp; Cost Admin API</strong> (Admin API key). <span class="cite"><a href="https://platform.claude.com/docs/en/manage-claude/usage-cost-api">Usage and Cost API</a></span></li>
+</ul>
+</body>
+</html>

@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Glossary · DDD review</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<nav class="crumbs"><a href="../index.html">Course map</a> · <a href="heuristics.html">Heuristics cheat sheet</a></nav>
+
+<div class="kicker">Reference</div>
+<h1>Glossary</h1>
+<p class="subtitle">The canonical vocabulary for this course, following Khononov's <em>Learning Domain-Driven Design</em>. Lessons use these terms and no others.</p>
+
+<h2><span class="tag strategic">Part I</span> Strategic design</h2>
+<dl class="glossary">
+  <dt>Business domain</dt>
+  <dd>The company's main area of activity: the service it provides to its customers. <span class="avoid">Ch. 1</span></dd>
+  <dt>Subdomain</dt>
+  <dd>A fine-grained area of business activity. Subdomains are <em>discovered</em> from the business strategy, not designed. <span class="avoid">Ch. 1</span></dd>
+  <dt>Core subdomain</dt>
+  <dd>What the company does differently from its competitors: its competitive advantage. Usually complex and volatile. Build it in-house. <span class="avoid">Ch. 1</span></dd>
+  <dt>Generic subdomain</dt>
+  <dd>A complex but already-solved problem that every company handles the same way (identity, payments). Buy or adopt an existing solution. <span class="avoid">Ch. 1</span></dd>
+  <dt>Supporting subdomain</dt>
+  <dd>Needed by the business but gives no competitive advantage. Typically simple (often CRUD or ETL). Build it in-house cheaply or outsource it. <span class="avoid">Ch. 1</span></dd>
+  <dt>Ubiquitous language</dt>
+  <dd>The single language shared by domain experts and engineers, used in conversations, documents, and code. Each term has exactly one meaning. <span class="avoid">Avoid: technical jargon in its place. Ch. 2</span></dd>
+  <dt>Bounded context</dt>
+  <dd>The explicit boundary within which a model and its ubiquitous language are consistent. It's a <em>design</em> decision, it's owned by exactly one team, and it is also a physical boundary (it can be deployed on its own). <span class="avoid">Ch. 3</span></dd>
+  <dt>Context map</dt>
+  <dd>A diagram of the bounded contexts and the integration patterns between them. <span class="avoid">Ch. 4</span></dd>
+  <dt>Partnership</dt>
+  <dd>Cooperation pattern: two teams coordinate integration ad hoc and succeed or fail together. <span class="avoid">Ch. 4</span></dd>
+  <dt>Shared kernel</dt>
+  <dd>Cooperation pattern: a small part of the model is shared and co-owned by both teams. Changes to it need both teams to agree. <span class="avoid">Ch. 4</span></dd>
+  <dt>Conformist</dt>
+  <dd>Customer–supplier pattern: the downstream context accepts the upstream model as it is. <span class="avoid">Ch. 4</span></dd>
+  <dt>Anticorruption layer (ACL)</dt>
+  <dd>Customer–supplier pattern: the downstream context translates the upstream model into its own, protecting it from upstream changes. Typical when the downstream context is core. <span class="avoid">Ch. 4</span></dd>
+  <dt>Open-host service (OHS)</dt>
+  <dd>Customer–supplier pattern: the upstream context exposes a public <em>published language</em> that is separate from its internal model, so the two can evolve independently. <span class="avoid">Ch. 4</span></dd>
+  <dt>Separate ways</dt>
+  <dd>The teams don't integrate at all. Each context duplicates whatever functionality it needs. <span class="avoid">Ch. 4</span></dd>
+</dl>
+
+<h2><span class="tag tactical">Part II</span> Tactical design</h2>
+<dl class="glossary">
+  <dt>Transaction script</dt>
+  <dd>Business logic organized as procedures, each wrapping one operation in a transaction. <span class="avoid">Ch. 5</span></dd>
+  <dt>Active record</dt>
+  <dd>Objects that wrap data structures and carry their own persistence (CRUD) methods. Suits simple logic over complex data. <span class="avoid">Ch. 5</span></dd>
+  <dt>Domain model</dt>
+  <dd>Business logic expressed as objects (value objects, entities, aggregates, domain services) using the ubiquitous language. Suits complex logic. <span class="avoid">Ch. 6</span></dd>
+  <dt>Value object</dt>
+  <dd>An immutable object identified by the combination of its values. It has no ID. <span class="avoid">Ch. 6</span></dd>
+  <dt>Entity</dt>
+  <dd>An object with an identity that stays the same as its state changes. <span class="avoid">Ch. 6</span></dd>
+  <dt>Aggregate</dt>
+  <dd>A cluster of entities and value objects that forms a consistency and transactional boundary. It is changed only through its root's public interface. Other aggregates reference it by ID. Keep it as small as strong consistency allows. <span class="avoid">Ch. 6</span></dd>
+  <dt>Domain event</dt>
+  <dd>A message describing a significant business occurrence, named in the past tense (<code>OrderPlaced</code>). It's part of an aggregate's public interface. <span class="avoid">Ch. 6</span></dd>
+  <dt>Domain service</dt>
+  <dd>A stateless object holding business logic that doesn't belong to any single aggregate or value object. <span class="avoid">Ch. 6</span></dd>
+  <dt>Event-sourced domain model</dt>
+  <dd>A domain model whose aggregates persist state as an append-only stream of domain events. The current state is derived by replaying them. <span class="avoid">Ch. 7</span></dd>
+  <dt>Layered architecture</dt>
+  <dd>Presentation → business logic → data access, with an optional service layer between presentation and business logic. <span class="avoid">Ch. 8</span></dd>
+  <dt>Ports &amp; adapters</dt>
+  <dd>Business logic at the center with no infrastructure dependencies. Infrastructure plugs in through ports (interfaces) and adapters (implementations). <span class="avoid">Alias: hexagonal. Ch. 8</span></dd>
+  <dt>CQRS</dt>
+  <dd>Separates the model that executes commands from read models (projections) optimized for queries. <span class="avoid">Ch. 8</span></dd>
+  <dt>Outbox</dt>
+  <dd>Commit domain events to an outbox table in the same transaction as the aggregate, then publish them reliably from there. <span class="avoid">Ch. 9</span></dd>
+  <dt>Saga</dt>
+  <dd>A long-running business process that reacts to events and issues commands across aggregates or contexts, with compensating actions when a step fails. <span class="avoid">Ch. 9</span></dd>
+  <dt>Process manager</dt>
+  <dd>A central, stateful coordinator for a multi-step process whose flow can't be derived from events alone. <span class="avoid">Ch. 9</span></dd>
+</dl>
+
+<h2><span class="tag practice">Part III</span> DDD in practice</h2>
+<dl class="glossary">
+  <dt>Heuristic</dt>
+  <dd>A rule of thumb that is right most of the time, not always. Ch. 10 turns the patterns above into a decision tree. See the <a href="heuristics.html">cheat sheet</a>. <span class="avoid">Ch. 10</span></dd>
+  <dt>EventStorming</dt>
+  <dd>A workshop where people from business and engineering model a business process on a wall of sticky notes: events, commands, policies, read models, external systems, aggregates, bounded contexts. <span class="avoid">Ch. 12</span></dd>
+  <dt>Policy (EventStorming)</dt>
+  <dd>An automation rule: "whenever <em>event</em>, then <em>command</em>." <span class="avoid">Ch. 12</span></dd>
+  <dt>Strangler fig</dt>
+  <dd>Gradually replace a legacy system by routing more and more functionality to new components until the old system can be retired. <span class="avoid">Ch. 13</span></dd>
+</dl>
+
+<h2><span class="tag beyond">Part IV</span> Relationships to other methods</h2>
+<dl class="glossary">
+  <dt>Deep service</dt>
+  <dd>A service whose simple public interface hides a lot of functionality. A <em>shallow</em> service's interface is about as complex as its implementation. <span class="avoid">Ch. 14 (after Ousterhout)</span></dd>
+  <dt>Event notification</dt>
+  <dd>A thin event announcing that something changed. Consumers query the producer for details. <span class="avoid">Ch. 15</span></dd>
+  <dt>Event-carried state transfer (ECST)</dt>
+  <dd>An event that carries a snapshot of the changed state, so consumers can keep a local cache. Comes with eventual consistency. <span class="avoid">Ch. 15</span></dd>
+  <dt>Data mesh</dt>
+  <dd>Analytical data decentralized along domain lines. Four principles: domain ownership, data as a product, self-serve platform, federated computational governance. <span class="avoid">Ch. 16</span></dd>
+</dl>
+
+<p class="cite">Sources: Khononov, <em>Learning Domain-Driven Design</em> (O'Reilly, 2021) · <a href="https://www.domainlanguage.com/ddd/reference/">Evans, DDD Reference</a> · <a href="https://github.com/ddd-crew/context-mapping">DDD Crew</a> · <a href="https://martinfowler.com/articles/201701-event-driven.html">Fowler on event-driven</a> · <a href="https://martinfowler.com/articles/data-mesh-principles.html">Dehghani on data mesh</a>.</p>
+</body>
+</html>

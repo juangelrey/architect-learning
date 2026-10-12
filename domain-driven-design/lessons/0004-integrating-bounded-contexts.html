@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch. 4: Integrating bounded contexts</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-lesson="0004-integrating-bounded-contexts">
+
+<nav class="crumbs"><a href="../index.html">Course map</a> · <a href="../reference/glossary.html">Glossary</a> · <a href="../reference/heuristics.html">Heuristics</a> · Prev: <a href="0003-managing-domain-complexity.html">Ch. 3</a> · Next: <a href="0005-implementing-simple-business-logic.html">Ch. 5</a></nav>
+
+<div class="kicker">Chapter 4</div>
+<h1>Integrating bounded contexts</h1>
+<p class="subtitle">Contexts are separate, but they're never isolated. The integration pattern you choose reflects how the teams relate to each other.</p>
+
+<div class="meta">
+  <span>≈ 12 minutes</span>
+  <span>2 review + 7 questions + 1 scenario</span>
+  <span><span class="tag strategic">Part I</span></span>
+</div>
+
+<!-- ============================================================ -->
+<h2>0 · Spaced review: ch. 2–3</h2>
+
+<div class="q" data-topic="strategic" data-answer="2">
+  <p class="stem">Fill the blanks: a bounded context is ___; a subdomain is ___.</p>
+  <ol class="options">
+    <li>Discovered; designed</li>
+    <li>Designed; designed</li>
+    <li>Designed; discovered</li>
+    <li>Discovered; discovered</li>
+  </ol>
+  <div class="explain">You <strong>design</strong> bounded contexts. You <strong>discover</strong> subdomains in the business strategy. <span class="cite">Ch. 3.</span></div>
+</div>
+
+<div class="q" data-topic="strategic" data-answer="1">
+  <p class="stem">Warehouse staff say "shipment" for both an outbound customer order and an inbound supplier delivery. Which kind of inconsistency is this?</p>
+  <ol class="options">
+    <li>Synonymous terms</li>
+    <li>Ambiguous terms</li>
+    <li>Technical jargon</li>
+    <li>Missing invariants</li>
+  </ol>
+  <div class="explain">This is <strong>ambiguity</strong>: one word with two meanings. A synonym is the reverse, several words for one meaning. <span class="cite">Ch. 2.</span></div>
+</div>
+
+<!-- ============================================================ -->
+<h2>1 · Recall first</h2>
+
+<div class="recall" data-topic="warmup" data-title="Integration patterns recall">
+  <p class="prompt">Without looking: name every integration pattern from the chapter and sort them into the chapter's <strong>three groups</strong>. For each customer–supplier pattern, say which side holds the power.</p>
+  <textarea placeholder="Group 1: …&#10;Group 2: …&#10;Group 3: …"></textarea>
+  <div class="model">
+    <p><strong>Cooperation:</strong> partnership, shared kernel.<br>
+    <strong>Customer–supplier:</strong> conformist (the upstream holds the power, and the downstream accepts its model), anticorruption layer (the downstream protects itself and translates), open-host service (the upstream protects its consumers by publishing a separate public language).<br>
+    <strong>Separate ways:</strong> no integration at all. Each side duplicates what it needs.</p>
+    <ul class="rubric">
+      <li>Named all six patterns</li>
+      <li>Grouped them correctly into cooperation / customer–supplier / separate ways</li>
+      <li>Conformist: power with the upstream</li>
+      <li>Anticorruption layer and open-host service: who protects whom</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>2 · The ideas that matter</h2>
+
+<p><strong>Contracts.</strong> Wherever two bounded contexts integrate, there's a contract. Each side has its own model and language, so someone has to translate. The patterns differ in <em>who</em> does the translating, and that depends on how the teams work together. <span class="cite">Ch. 4.</span></p>
+
+<p><strong>Cooperation</strong> works when teams communicate well.</p>
+<ul>
+  <li><em>Partnership</em>: the teams coordinate integration ad hoc and in both directions, and they fix breakages together.</li>
+  <li><em>Shared kernel</em>: part of the model is shared and co-owned, so a change affects both contexts. It's justified when duplicating that part would cost more than coordinating changes to it. Keep the shared part small.</li>
+</ul>
+
+<p><strong>Customer–supplier</strong>: the upstream (supplier) can succeed without the downstream (customer). The balance of power decides which pattern fits.</p>
+<ul>
+  <li><em>Conformist</em>: the downstream accepts the upstream model as it is. This is reasonable when the upstream model is an industry standard or simply good enough.</li>
+  <li><em>Anticorruption layer</em>: the downstream translates the upstream model into its own. Use it when the downstream is core, when the upstream model is inefficient or inconvenient, or when the upstream contract changes often.</li>
+  <li><em>Open-host service</em>: the upstream exposes a <em>published language</em> that is separate from its internal model, so it can change internally without breaking consumers. It can serve several versions of that language at once.</li>
+</ul>
+
+<p><strong>Separate ways</strong>: when collaboration is too hard, or duplication is cheap (as with generic functionality), each side duplicates what it needs. Avoid it for <em>core</em> subdomains, because duplicating your competitive advantage contradicts your strategy.</p>
+
+<p><strong>Context map</strong>: a diagram of the contexts and the patterns between them. It shows the high-level design, communication patterns, and organizational problems. For example, if every consumer of one upstream team builds an anticorruption layer, something is wrong upstream.</p>
+
+<p class="cite">See also <a href="https://github.com/ddd-crew/context-mapping">DDD Crew, context mapping cheat sheet</a> and Evans's <a href="https://www.domainlanguage.com/ddd/reference/">DDD Reference</a> (Context Mapping section).</p>
+
+<!-- ============================================================ -->
+<h2>3 · Practice</h2>
+
+<div class="q" data-topic="strategic" data-answer="0">
+  <p class="stem">Two teams sit in the same office. They coordinate integration changes as needed, either team can break the other, and when that happens they fix it together. Which pattern is this?</p>
+  <ol class="options">
+    <li>Partnership pattern</li>
+    <li>Shared kernel</li>
+    <li>Conformist relationship</li>
+    <li>Separate ways</li>
+  </ol>
+  <div class="explain"><strong>Partnership</strong> means two-way, ad hoc coordination between teams that succeed or fail together. Nothing here says they share model code, so it isn't a shared kernel.</div>
+</div>
+
+<div class="q" data-topic="strategic" data-answer="2">
+  <p class="stem">When is a <strong>shared kernel</strong> justified?</p>
+  <ol class="options">
+    <li>When two teams cannot communicate well with each other</li>
+    <li>When the upstream model is messy and changes often</li>
+    <li>When duplicating the model costs more than coordinating changes</li>
+    <li>When one context must publish data to many consumers</li>
+  </ol>
+  <div class="explain">A shared kernel couples the two contexts, so it's worth it only when <strong>duplication would cost more than coordination</strong>. If teams can't communicate, choose separate ways or an anticorruption layer. A messy upstream calls for an anticorruption layer, and many consumers call for an open-host service.</div>
+</div>
+
+<div class="q" data-topic="strategic" data-answer="1">
+  <p class="stem">Your downstream context consumes an upstream API that uses a well-known industry-standard data format. The format fits your needs, and the upstream team won't customize it for you. Which pattern fits best?</p>
+  <ol class="options">
+    <li>Anticorruption layer</li>
+    <li>Conformist relationship</li>
+    <li>Shared kernel</li>
+    <li>Partnership pattern</li>
+  </ol>
+  <div class="explain">The upstream model is a standard and <strong>good enough</strong>, so translating it buys you nothing. Accept it: <strong>conformist</strong>. You'd only pay for an anticorruption layer if the upstream model would hurt your own.</div>
+</div>
+
+<div class="q" data-topic="strategic" data-answer="3">
+  <p class="stem">Which of these is <strong>not</strong> a typical reason to build an anticorruption layer?</p>
+  <ol class="options">
+    <li>Your downstream context implements a core business subdomain</li>
+    <li>The upstream model is inconvenient for your needs</li>
+    <li>The upstream contract changes frequently and without warning</li>
+    <li>The upstream model already fits your needs perfectly</li>
+  </ol>
+  <div class="explain">If the upstream model already fits, a translation layer is pure cost. Conform instead. The other three are the chapter's reasons to <strong>protect</strong> your model with an anticorruption layer.</div>
+</div>
+
+<div class="q" data-topic="strategic" data-answer="1">
+  <p class="stem">An upstream Catalog context has a dozen consumers. Its team wants to refactor its internal model often without breaking any of them. Which pattern should Catalog adopt?</p>
+  <ol class="options">
+    <li>Anticorruption layer</li>
+    <li>Open-host service</li>
+    <li>Shared kernel</li>
+    <li>Conformist relationship</li>
+  </ol>
+  <div class="explain">An <strong>open-host service</strong> exposes a <em>published language</em> that is separate from the internal model. The upstream absorbs the translation, so its internals can change freely, and it can even serve several versions of the public language. An anticorruption layer is something a <em>downstream</em> team builds.</div>
+</div>
+
+<div class="q" data-topic="strategic" data-answer="2">
+  <p class="stem">When does the chapter say to avoid <strong>separate ways</strong>?</p>
+  <ol class="options">
+    <li>When duplicating generic functionality</li>
+    <li>When teams cannot collaborate</li>
+    <li>When integrating core subdomains</li>
+    <li>When models differ greatly</li>
+  </ol>
+  <div class="explain">Duplicating a <strong>core</strong> subdomain means building your competitive advantage twice, which contradicts the strategy. The other three are the usual <em>reasons</em> to choose separate ways.</div>
+</div>
+
+<div class="q" data-topic="strategic" data-answer="0">
+  <p class="stem">A context map shows five downstream contexts, and every one of them wraps the same upstream context in an anticorruption layer. What might this signal?</p>
+  <ol class="options">
+    <li>The upstream model is serving its consumers poorly</li>
+    <li>The downstream teams are all over-engineering their integrations</li>
+    <li>The organization should merge all six contexts together</li>
+    <li>The upstream team should adopt a conformist relationship</li>
+  </ol>
+  <div class="explain">A context map is also an <strong>organizational diagnostic</strong>. When everyone downstream protects themselves from one upstream, the upstream model or interface is the problem. An open-host service is the usual fix.</div>
+</div>
+
+<!-- ============================================================ -->
+<h2>4 · Interview scenario</h2>
+
+<div class="callout">
+<p><strong>PawPoint, continued</strong> (from ch. 3). The contexts are <em>Scheduling</em> (core, Scheduling team), <em>Clinical</em> (Clinical team), <em>Billing</em> and <em>Inventory</em> (both owned by the Billing team), plus two external systems:</p>
+<ul>
+  <li>A <strong>third-party lab</strong> sends test results in an old, awkward format that changes without notice.</li>
+  <li>A <strong>payment provider</strong> offers a widely used, well-designed API.</li>
+</ul>
+<p>Billing needs to know which treatments were performed. Scheduling needs typical visit durations from clinical history, and the two teams work closely together. Billing and Inventory share a medicine price list.</p>
+</div>
+
+<div class="recall" data-topic="strategic" data-title="Scenario: PawPoint context map">
+  <p class="prompt"><strong>(7 min)</strong> Sketch the context map. For each relationship, name the upstream and downstream (if there is one), the pattern, and a one-line justification.</p>
+  <textarea placeholder="Lab → Clinical: … because …&#10;…"></textarea>
+  <div class="model">
+    <table>
+      <thead><tr><th>Relationship</th><th>Pattern</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td>Lab (up) → Clinical (down)</td><td>Anticorruption layer</td><td>The upstream is messy and volatile and won't change for us. Protect the model.</td></tr>
+        <tr><td>Payment provider (up) → Billing (down)</td><td>Conformist</td><td>A generic subdomain with a good, widely used model. Translating adds nothing.</td></tr>
+        <tr><td>Clinical (up) → Billing (down)</td><td>Open-host service (published language, e.g. a "treatment performed" contract)</td><td>Clinical's internals can evolve, and other consumers (e.g. Scheduling) can reuse the same contract.</td></tr>
+        <tr><td>Scheduling ↔ Clinical</td><td>Partnership</td><td>The teams work closely together and succeed together. Two-way coordination is cheap.</td></tr>
+        <tr><td>Billing ↔ Inventory</td><td>Shared kernel (price list)</td><td>One team owns both, so coordination is cheap and duplication would cost more.</td></tr>
+      </tbody>
+    </table>
+    <p class="small">Defensible variations: Clinical could conform to the lab if its model were good enough, and Billing could build an anticorruption layer over Clinical instead of Clinical offering an open-host service. In an interview, the justification is what gets scored.</p>
+    <ul class="rubric">
+      <li>Anticorruption layer for the lab, justified by a messy or volatile upstream</li>
+      <li>Conformist (or a justified alternative) for the payment provider</li>
+      <li>Open-host service or published language for Clinical → Billing, or a justified anticorruption layer downstream</li>
+      <li>Partnership for Scheduling ↔ Clinical, justified by the close collaboration</li>
+      <li>Shared kernel for Billing ↔ Inventory, justified by coordination vs duplication cost</li>
+      <li>Marked upstream and downstream for every customer–supplier relationship</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>Your results</h2>
+<div id="scoreboard" class="scoreboard"></div>
+<p>Copy your results and paste them into the chat. That wraps up Part I. Next up is <strong>ch. 5, Implementing Simple Business Logic</strong>.</p>
+
+<div class="callout source">
+<p><strong>Primary source:</strong> <a href="https://www.oreilly.com/library/view/learning-domain-driven-design/9781098100124/">Khononov, <em>Learning Domain-Driven Design</em>, ch. 4</a>. Re-read the context map section, especially what a map reveals about the organization, then do the chapter exercises.</p>
+</div>
+
+<div class="callout ask">
+<p><strong>Questions?</strong> Ask me in the chat. For example: "What's the difference between an open-host service and a published language?" or "Can two contexts have more than one pattern between them?"</p>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

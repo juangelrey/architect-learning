@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch. 12: EventStorming</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-lesson="0012-eventstorming">
+
+<nav class="crumbs"><a href="../index.html">Course map</a> · <a href="../reference/glossary.html">Glossary</a> · Prev: <a href="0011-evolving-design-decisions.html">Ch. 11</a> · Next: <a href="0013-ddd-in-the-real-world.html">Ch. 13</a></nav>
+
+<div class="kicker">Chapter 12</div>
+<h1>EventStorming</h1>
+<p class="subtitle">A wall, sticky notes, and the right people in the room. It's the fastest way to build a shared model of a business process.</p>
+
+<div class="meta">
+  <span>≈ 12 minutes</span>
+  <span>2 review + 7 questions + 1 scenario</span>
+  <span><span class="tag practice">Part III</span></span>
+</div>
+
+<!-- ============================================================ -->
+<h2>0 · Spaced review: ch. 6 &amp; 11</h2>
+
+<div class="q" data-topic="tactical" data-answer="2">
+  <p class="stem">An <code>Invoice</code> aggregate needs to refer to the <code>Customer</code> it bills. It should…</p>
+  <ol class="options">
+    <li>embed the entire Customer aggregate inside itself</li>
+    <li>load Customer within the same database transaction</li>
+    <li>hold only the Customer aggregate's identifier value</li>
+    <li>copy every Customer field into its table</li>
+  </ol>
+  <div class="explain">Aggregates <strong>reference each other by ID</strong>. Each aggregate is its own consistency and transactional boundary. <span class="cite">Ch. 6.</span></div>
+</div>
+
+<div class="q" data-topic="practice" data-answer="0">
+  <p class="stem">Two partner teams lose easy communication after a reorganization. A sensible move is toward…</p>
+  <ol class="options">
+    <li>A customer–supplier relationship</li>
+    <li>Shared kernel model</li>
+    <li>Tighter partnership agreement</li>
+    <li>One merged context</li>
+  </ol>
+  <div class="explain">Partnership needs strong communication. When it breaks down, move to a pattern that needs less coordination, such as <strong>customer–supplier</strong> or separate ways. <span class="cite">Ch. 11.</span></div>
+</div>
+
+<!-- ============================================================ -->
+<h2>1 · Recall first</h2>
+
+<div class="recall" data-topic="warmup" data-title="EventStorming steps recall">
+  <p class="prompt">Without looking: list the EventStorming steps in order, and give the sticky-note element each one adds. Then say who should be in the room.</p>
+  <textarea placeholder="1. …&#10;2. …&#10;…&#10;Who: …"></textarea>
+  <div class="model">
+    <ol>
+      <li><strong>Unstructured exploration</strong>: everyone writes domain events (past tense) freely</li>
+      <li><strong>Timelines</strong>: order the events, happy path first</li>
+      <li><strong>Pain points</strong>: mark bottlenecks, questions, and missing knowledge (hotspots)</li>
+      <li><strong>Pivotal events</strong>: events that mark a change of stage in the process</li>
+      <li><strong>Commands</strong>: what triggers events, plus the actors who issue them</li>
+      <li><strong>Policies</strong>: automations ("whenever X, then Y")</li>
+      <li><strong>Read models</strong>: the information an actor uses to decide on a command</li>
+      <li><strong>External systems</strong></li>
+      <li><strong>Aggregates</strong>: group related commands and events</li>
+      <li><strong>Bounded contexts</strong>: group aggregates into candidate contexts</li>
+    </ol>
+    <p><strong>Who:</strong> a diverse group, including domain experts, engineers, and anyone else with knowledge of the process, kept small enough that everyone can take part.</p>
+    <ul class="rubric">
+      <li>Started with unstructured exploration of events</li>
+      <li>Timelines, then pain points and pivotal events</li>
+      <li>Commands (and actors), then policies</li>
+      <li>Read models and external systems</li>
+      <li>Ended with aggregates and bounded contexts</li>
+      <li>Stressed a mix of domain experts and engineers</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>2 · The ideas that matter</h2>
+
+<p><strong>What it is.</strong> EventStorming, created by Alberto Brandolini, is a low-tech workshop for modeling a business process together. It's built around <em>domain events</em>, written in the past tense on sticky notes along a timeline. <span class="cite">Ch. 12.</span></p>
+
+<p><strong>Who and what.</strong> Bring a diverse group, with domain experts and engineers as the minimum, and keep it small enough for everyone to take part. You need a large modeling surface, plenty of sticky notes in several colors, markers, and ideally a room where people stand rather than sit.</p>
+
+<p><strong>The process</strong> moves from chaos to structure: events → timelines → pain points → pivotal events → commands → policies → read models → external systems → aggregates → bounded contexts. You don't have to finish every step. Stop at the level of detail your goal needs.</p>
+
+<p><strong>What it's for:</strong> building a ubiquitous language, modeling a business process, exploring new requirements, recovering lost domain knowledge, finding improvements to an existing process, and onboarding new team members.</p>
+
+<p><strong>Facilitation matters.</strong> Keep everyone involved, watch the group's energy, don't let one person dominate, and make knowledge gaps visible as hotspots instead of resolving them in debate. It can also be run remotely on an online whiteboard, though it loses some of its energy.</p>
+
+<p class="cite">Sticky colors and grammar: <a href="https://github.com/ddd-crew/eventstorming-glossary-cheat-sheet">DDD Crew, EventStorming Glossary &amp; Cheat Sheet</a>.</p>
+
+<!-- ============================================================ -->
+<h2>3 · Practice</h2>
+
+<div class="q" data-topic="practice" data-answer="1">
+  <p class="stem">Which sticky is correctly written as a <strong>domain event</strong>?</p>
+  <ol class="options">
+    <li>Approve the refund request</li>
+    <li>Refund request was approved</li>
+    <li>Refund approval screen data</li>
+    <li>Refund service approval logic</li>
+  </ol>
+  <div class="explain">Domain events describe something that <strong>has happened</strong>, in the past tense. "Approve…" is a command. Screen data would be a read model. "Service logic" is implementation, not domain language.</div>
+</div>
+
+<div class="q" data-topic="practice" data-answer="3">
+  <p class="stem">What's the very first step of an EventStorming session?</p>
+  <ol class="options">
+    <li>Identify all the aggregates</li>
+    <li>Draw the bounded contexts</li>
+    <li>Add commands and actors</li>
+    <li>Unstructured exploration of events</li>
+  </ol>
+  <div class="explain">Start with <strong>unstructured exploration</strong>: everyone writes down whatever events come to mind, with no ordering yet. Structure comes later, and aggregates and contexts come last.</div>
+</div>
+
+<div class="q" data-topic="practice" data-answer="0">
+  <p class="stem">A sticky shows the information a dispatcher looks at before choosing to <em>Assign driver</em>. This element is a…</p>
+  <ol class="options">
+    <li>Read model</li>
+    <li>External system</li>
+    <li>Pivotal event</li>
+    <li>Domain event</li>
+  </ol>
+  <div class="explain">A <strong>read model</strong> is the view of data an actor uses to decide whether to execute a command. In CQRS, it becomes a projection.</div>
+</div>
+
+<div class="q" data-topic="practice" data-answer="2">
+  <p class="stem"><em>"Order placed"</em> is followed by a long fulfillment stage, and then <em>"Order shipped"</em> starts the delivery stage. Events like "Order shipped", which mark a change of stage, are…</p>
+  <ol class="options">
+    <li>Hotspot events</li>
+    <li>External events</li>
+    <li>Pivotal events</li>
+    <li>Command events</li>
+  </ol>
+  <div class="explain"><strong>Pivotal events</strong> mark a significant change of stage in the process. They split the timeline into sections, and those sections often hint at bounded-context boundaries later.</div>
+</div>
+
+<div class="q" data-topic="practice" data-answer="1">
+  <p class="stem">Midway through a session, nobody knows what happens when a payment is disputed. The facilitator should…</p>
+  <ol class="options">
+    <li>Debate it until everyone in the group agrees</li>
+    <li>Mark it as a hotspot and keep going</li>
+    <li>Skip disputes entirely because they are edge cases</li>
+    <li>Ask engineers to decide on the correct behavior</li>
+  </ol>
+  <div class="explain">Make the gap visible as a <strong>pain point / hotspot</strong> and follow up later. Open questions are valuable findings. Debating them stalls the session, and letting engineers decide replaces domain knowledge with guesses.</div>
+</div>
+
+<div class="q" data-topic="practice" data-answer="3">
+  <p class="stem">Which goal is EventStorming <em>not</em> suited for, according to the chapter's list of uses?</p>
+  <ol class="options">
+    <li>Building a shared ubiquitous language very quickly</li>
+    <li>Onboarding new team members to the domain</li>
+    <li>Recovering domain knowledge lost over the years</li>
+    <li>Benchmarking database performance under very heavy load</li>
+  </ol>
+  <div class="explain">EventStorming is about <strong>domain knowledge</strong>: language, processes, requirements, onboarding. Performance testing is a technical concern it doesn't address.</div>
+</div>
+
+<div class="q" data-topic="practice" data-answer="0">
+  <p class="stem">Must every session go through all the steps, up to bounded contexts?</p>
+  <ol class="options">
+    <li>No; stop once your goal is met</li>
+    <li>Yes; skipping steps makes the model invalid</li>
+    <li>Yes; aggregates are the only valuable output</li>
+    <li>No; only the first step ever matters</li>
+  </ol>
+  <div class="explain">The steps are a guide. A session aimed at a shared language might end after the timeline. A design session goes on to aggregates and contexts. <strong>Tailor it to your goal.</strong></div>
+</div>
+
+<!-- ============================================================ -->
+<h2>4 · Interview scenario</h2>
+
+<div class="callout">
+<p><strong>"Walk me through how you'd run an EventStorming session for this."</strong> <em>FitNest</em> is a gym chain. Members book classes in an app. If a class is full they join a waitlist. If someone cancels, the first person on the waitlist is promoted automatically and notified by SMS through an external provider. Members who don't show up three times are blocked from booking for a week. The trainers' payroll uses class attendance.</p>
+</div>
+
+<div class="recall" data-topic="practice" data-title="Scenario: FitNest EventStorming">
+  <p class="prompt"><strong>(7 min)</strong> (1) Who do you invite? (2) Write 6–8 domain events on a timeline, and mark one pivotal event. (3) Name two commands with their actors, two policies, one read model, and one external system. (4) Suggest one aggregate and two candidate bounded contexts.</p>
+  <textarea placeholder="(1) …&#10;(2) Events: …&#10;(3) …&#10;(4) …"></textarea>
+  <div class="model">
+    <p><strong>(1)</strong> Front-desk staff, a trainer, a member-experience or ops lead, someone from payroll, and the engineers who will build it.</p>
+    <p><strong>(2)</strong> Class scheduled → Class booked → Class became full → Member waitlisted → Booking cancelled → Waitlisted member promoted → Member checked in / Member marked no-show → Member blocked → Attendance recorded for payroll. Pivotal: <em>Class held</em> (ends the booking stage and starts attendance and payroll).</p>
+    <p><strong>(3)</strong> Commands: <em>Book class</em> (member), <em>Check in member</em> (front desk). Policies: "Whenever a booking is cancelled and the waitlist isn't empty, promote the first member." "Whenever a member has 3 no-shows, block them for 7 days." Read model: class roster with free spots. External system: SMS provider.</p>
+    <p><strong>(4)</strong> Aggregate: <em>Class session</em> (capacity, bookings, waitlist, all strongly consistent). Contexts: <em>Booking</em> and <em>Trainer payroll</em> (which consumes attendance events).</p>
+    <ul class="rubric">
+      <li>Invited domain experts and engineers, not only engineers</li>
+      <li>Events written in the past tense, in business language</li>
+      <li>Identified a sensible pivotal event</li>
+      <li>Commands paired with actors</li>
+      <li>Policies phrased as "whenever X, then Y"</li>
+      <li>Read model and external system identified</li>
+      <li>Proposed an aggregate around a consistency need, and plausible contexts</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>Your results</h2>
+<div id="scoreboard" class="scoreboard"></div>
+<p>Copy your results and paste them into the chat. Next up is <strong>ch. 13, DDD in the Real World</strong>: applying all of this to messy brownfield systems.</p>
+
+<div class="callout source">
+<p><strong>Primary source:</strong> <a href="https://www.oreilly.com/library/view/learning-domain-driven-design/9781098100124/">Khononov, <em>Learning Domain-Driven Design</em>, ch. 12</a>. Re-read the step-by-step walkthrough and the facilitation tips. For depth, see Brandolini's own <a href="https://www.eventstorming.com/">eventstorming.com</a>.</p>
+</div>
+
+<div class="callout ask">
+<p><strong>Questions?</strong> Ask me in the chat. For example: "How is big-picture EventStorming different from design-level?" or "How do I run it remotely?"</p>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

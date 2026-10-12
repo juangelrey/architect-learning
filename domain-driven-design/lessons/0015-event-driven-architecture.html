@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch. 15: Event-driven architecture</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-lesson="0015-event-driven-architecture">
+
+<nav class="crumbs"><a href="../index.html">Course map</a> · <a href="../reference/glossary.html">Glossary</a> · Prev: <a href="0014-microservices.html">Ch. 14</a> · Next: <a href="0016-data-mesh.html">Ch. 16</a></nav>
+
+<div class="kicker">Chapter 15</div>
+<h1>Event-driven architecture</h1>
+<p class="subtitle">Events can decouple services or weld them together. What decides it is what you put in them.</p>
+
+<div class="meta">
+  <span>≈ 12 minutes</span>
+  <span>2 review + 7 questions + 1 scenario</span>
+  <span><span class="tag beyond">Part IV</span></span>
+</div>
+
+<!-- ============================================================ -->
+<h2>0 · Spaced review: earlier chapters</h2>
+
+<div class="q" data-topic="tactical" data-answer="3">
+  <span class="tag tactical">Part II</span>
+  <p class="stem">An aggregate's state change and the event announcing it must be committed together, without a distributed transaction. Use the…</p>
+  <ol class="options">
+    <li>Saga pattern</li>
+    <li>Process manager</li>
+    <li>Two-phase commit</li>
+    <li>Outbox pattern</li>
+  </ol>
+  <div class="explain">The <strong>outbox</strong> writes the event to a table in the same transaction as the aggregate, and a relay publishes it afterwards. <span class="cite">Ch. 9.</span></div>
+</div>
+
+<div class="q" data-topic="tactical" data-answer="1">
+  <span class="tag tactical">Part II</span>
+  <p class="stem">In an event-sourced domain model, what is the source of truth for an aggregate's state?</p>
+  <ol class="options">
+    <li>The most recent snapshot table row</li>
+    <li>Its append-only stream of domain events</li>
+    <li>The read model built by projections</li>
+    <li>The message broker's retained topic history</li>
+  </ol>
+  <div class="explain">The <strong>event stream</strong> is the truth. The current state is derived by replaying it. Snapshots and projections are derived data. <span class="cite">Ch. 7.</span></div>
+</div>
+
+<!-- ============================================================ -->
+<h2>1 · Recall first</h2>
+
+<div class="recall" data-topic="warmup" data-title="EDA recall">
+  <p class="prompt">Without looking: (a) How does event-driven architecture differ from event sourcing? (b) Name the three types of event messages and what each one carries. (c) Why is it risky to publish an event-sourced aggregate's internal domain events to other services?</p>
+  <textarea placeholder="(a) …&#10;(b) …&#10;(c) …"></textarea>
+  <div class="model">
+    <p>(a) <strong>EDA</strong> is about how components <em>communicate</em>: asynchronously, through events. <strong>Event sourcing</strong> is how one component <em>persists</em> its state. You can have either one without the other.<br>
+    (b) <strong>Event notification</strong>: thin. It says something changed, and consumers query for the details. <strong>Event-carried state transfer</strong>: carries a snapshot of the state, so consumers can keep a local cache. <strong>Domain event</strong>: describes a business occurrence, and falls between the other two in content.<br>
+    (c) Those events are an <strong>implementation detail</strong> of the producer's model. Consumers become coupled to its internals, and every refactor breaks them. Publish purpose-built <em>public</em> events and keep the internal ones <em>private</em>.</p>
+    <ul class="rubric">
+      <li>EDA = communication, event sourcing = persistence</li>
+      <li>Named all three event types</li>
+      <li>Explained what each one carries</li>
+      <li>Private vs public events: don't leak implementation details</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>2 · The ideas that matter</h2>
+
+<p><strong>EDA ≠ event sourcing.</strong> EDA is an architectural style in which components communicate by exchanging events asynchronously. Event sourcing is a persistence pattern inside one component. They work well together, but neither one requires the other. <span class="cite">Ch. 15.</span></p>
+
+<p><strong>Events vs commands.</strong> An event describes something that <em>has already happened</em> (past tense, so it can't be rejected). A command <em>asks</em> for something to happen, and it can fail.</p>
+
+<p><strong>Three types of event.</strong></p>
+<ul>
+  <li><strong>Event notification</strong>: a thin "X changed" message. The consumer queries the producer when it needs details, so it always reads the latest state but depends on the producer being available. It's also useful when the data is sensitive and shouldn't travel in a message.</li>
+  <li><strong>Event-carried state transfer (ECST)</strong>: carries the changed state, so consumers can keep a local cache and keep working when the producer is down. The cost is <em>eventual consistency</em>.</li>
+  <li><strong>Domain event</strong>: a business occurrence modeled in the ubiquitous language. It sits between the other two in content.</li>
+</ul>
+
+<p><strong>Designing EDA well.</strong> Done carelessly, events produce a <em>distributed big ball of mud</em>, with services coupled through what their events contain and how they're timed. The chapter's guidance:</p>
+<ul>
+  <li>Assume the network will fail, so publish reliably with the <em>outbox</em>.</li>
+  <li>Separate <strong>private</strong> events (inside a context) from <strong>public</strong> events (its integration contract). Don't expose implementation details.</li>
+  <li>Choose the event type by the consumer's consistency needs: ECST when a local cache and eventual consistency are acceptable, event notification when the consumer must read the latest state.</li>
+</ul>
+
+<p class="cite">See also <a href="https://martinfowler.com/articles/201701-event-driven.html">Fowler, "What do you mean by 'Event-Driven'?"</a>, where the notification and state-transfer terms originate, and <a href="https://microservices.io/patterns/data/transactional-outbox.html">microservices.io, Transactional outbox</a>.</p>
+
+<!-- ============================================================ -->
+<h2>3 · Practice</h2>
+
+<div class="q" data-topic="beyond" data-answer="1">
+  <p class="stem">A colleague says: "We use Kafka between services, so we're doing event sourcing." What's the correction?</p>
+  <ol class="options">
+    <li>Correct, any broker usage is event sourcing</li>
+    <li>That's EDA; event sourcing concerns persistence instead</li>
+    <li>That's CQRS; event sourcing requires a saga</li>
+    <li>That's a shared kernel between the services</li>
+  </ol>
+  <div class="explain">Exchanging events between services is <strong>event-driven architecture</strong>. Event sourcing means a component <em>stores</em> its state as events. They're independent of each other.</div>
+</div>
+
+<div class="q" data-topic="beyond" data-answer="2">
+  <p class="stem">The Shipping service must keep working when the Customer service is down, so it keeps its own copy of customer addresses. Which event type fits?</p>
+  <ol class="options">
+    <li>Event notification message</li>
+    <li>Synchronous query request</li>
+    <li>Event-carried state transfer</li>
+    <li>Asynchronous command message</li>
+  </ol>
+  <div class="explain"><strong>ECST</strong> carries the state, so the consumer can keep a local cache and stay independent of the producer's availability. The cost is eventual consistency.</div>
+</div>
+
+<div class="q" data-topic="beyond" data-answer="0">
+  <p class="stem">A Pricing consumer must always act on the <em>latest</em> product price, and stale data is unacceptable. Which event type fits best?</p>
+  <ol class="options">
+    <li>Event notification message</li>
+    <li>Event-carried state transfer</li>
+    <li>Cached event snapshot</li>
+    <li>Nightly export file</li>
+  </ol>
+  <div class="explain">With an <strong>event notification</strong>, the consumer fetches the current state when it reacts, so it doesn't rely on a possibly stale snapshot. The trade-off is a runtime dependency on the producer.</div>
+</div>
+
+<div class="q" data-topic="beyond" data-answer="3">
+  <p class="stem">An event-sourced <code>Campaign</code> aggregate emits fine-grained internal events. Another team subscribes to all of them directly. What's the main risk?</p>
+  <ol class="options">
+    <li>The broker will run out of storage quickly</li>
+    <li>The events will arrive in the wrong order</li>
+    <li>The consumer can no longer use any cache</li>
+    <li>The consumer depends on the producer's internal model</li>
+  </ol>
+  <div class="explain">Internal events mirror the producer's <strong>model internals</strong>. Expose a small set of <em>public</em> events as the integration contract, and keep the <em>private</em> ones private.</div>
+</div>
+
+<div class="q" data-topic="beyond" data-answer="1">
+  <p class="stem">Which message is an <strong>event</strong> rather than a command?</p>
+  <ol class="options">
+    <li>ReserveInventory</li>
+    <li>InventoryReserved</li>
+    <li>CancelReservation</li>
+    <li>ShipOrderNow</li>
+  </ol>
+  <div class="explain">Events are named in the <strong>past tense</strong>: something that already happened and can't be rejected. The others are commands: requests that can fail.</div>
+</div>
+
+<div class="q" data-topic="beyond" data-answer="2">
+  <p class="stem">A service saves an order and then publishes <code>OrderPlaced</code> in a separate step. Occasionally the publish fails and downstream services never hear about the order. Which heuristic was ignored?</p>
+  <ol class="options">
+    <li>Always prefer thin event notifications</li>
+    <li>Use public and private events</li>
+    <li>Assume the network will fail</li>
+    <li>Align the services with subdomains</li>
+  </ol>
+  <div class="explain">Publishing must be <strong>reliable</strong>. Use the outbox so the event is committed in the same transaction as the state change, then relayed at least once.</div>
+</div>
+
+<div class="q" data-topic="beyond" data-answer="0">
+  <p class="stem">A patient-records service must announce changes, but the data is medically sensitive and shouldn't be copied around in messages. Which event type fits?</p>
+  <ol class="options">
+    <li>Event notification message</li>
+    <li>Event-carried state transfer</li>
+    <li>Fully populated event</li>
+    <li>Broadcast record snapshot</li>
+  </ol>
+  <div class="explain">A thin <strong>event notification</strong> says only that something changed. Authorized consumers then fetch the details through a secured query, so sensitive data doesn't spread through the broker.</div>
+</div>
+
+<!-- ============================================================ -->
+<h2>4 · Interview scenario</h2>
+
+<div class="callout">
+<p><strong>GreenCart</strong>, a grocery delivery service with three services. <em>Catalog</em> manages products and prices. <em>Ordering</em> takes orders and must show the correct price at checkout. <em>Recommendations</em> suggests products and needs product names, categories, and prices for millions of lookups a day. Today, Ordering and Recommendations call Catalog synchronously, and when Catalog is down, everything goes down. Catalog is event-sourced and has offered to "just publish all our internal events".</p>
+</div>
+
+<div class="recall" data-topic="beyond" data-title="Scenario: GreenCart events">
+  <p class="prompt"><strong>(7 min)</strong> Redesign the integration around events. For each consumer, choose an event type and justify it. Respond to Catalog's offer. Say how events are published reliably.</p>
+  <textarea placeholder="Recommendations …&#10;Ordering …&#10;Catalog's offer …&#10;Reliability …"></textarea>
+  <div class="model">
+    <table>
+      <thead><tr><th>Consumer</th><th>Event type</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td>Recommendations</td><td>Event-carried state transfer (<code>ProductUpdated</code> with name, category, price)</td><td>High read volume and needs to survive Catalog outages. A slightly stale price in a recommendation is fine, so eventual consistency is acceptable.</td></tr>
+        <tr><td>Ordering</td><td>Event notification (<code>PriceChanged</code>) + query at checkout, <em>or</em> ECST with a price check at checkout</td><td>The price shown at checkout must be correct, so it needs the latest state. Defend the trade-off: availability vs freshness.</td></tr>
+      </tbody>
+    </table>
+    <p><strong>Catalog's offer:</strong> decline it. The internal event-sourced events are <em>private</em> implementation details. Define a small set of <em>public</em> integration events (an open-host service with a published language).</p>
+    <p><strong>Reliability:</strong> Catalog publishes through an <em>outbox</em>. Consumers handle duplicates idempotently, because delivery is at least once.</p>
+    <ul class="rubric">
+      <li>ECST for Recommendations, with eventual consistency acknowledged</li>
+      <li>Treated Ordering's need for fresh prices explicitly (notification + query, or a check at checkout)</li>
+      <li>Rejected publishing internal events and proposed public events</li>
+      <li>Outbox for reliable publishing</li>
+      <li>Mentioned idempotent consumers or at-least-once delivery</li>
+      <li>Distinguished EDA (integration) from Catalog's event sourcing (persistence)</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>Your results</h2>
+<div id="scoreboard" class="scoreboard"></div>
+<p>Copy your results and paste them into the chat. Next up is <strong>ch. 16, Data Mesh</strong>: DDD applied to analytical data.</p>
+
+<div class="callout source">
+<p><strong>Primary source:</strong> <a href="https://www.oreilly.com/library/view/learning-domain-driven-design/9781098100124/">Khononov, <em>Learning Domain-Driven Design</em>, ch. 15</a>. Re-read the worked refactoring example and the design heuristics at the end. Walking through "what went wrong, and why" is a strong interview story.</p>
+</div>
+
+<div class="callout ask">
+<p><strong>Questions?</strong> Ask me in the chat. For example: "How do I version public events?" or "When is synchronous integration actually better than events?"</p>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>0002 · Ch. 1: Analyzing business domains</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-lesson="0001-analyzing-business-domains">
+
+<nav class="crumbs"><a href="../index.html">Course map</a> · <a href="../reference/glossary.html">Glossary</a> · <a href="../reference/heuristics.html">Heuristics</a> · Next: <a href="0002-discovering-domain-knowledge.html">Ch. 2</a></nav>
+
+<div class="kicker">Chapter 1</div>
+<h1>Analyzing business domains</h1>
+<p class="subtitle">Every later decision in the book starts from one question: what kind of subdomain is this?</p>
+
+<div class="meta">
+  <span>≈ 12 minutes</span>
+  <span>1 recall + 7 questions + 1 scenario</span>
+  <span><span class="tag strategic">Part I</span></span>
+</div>
+
+<p>Why this chapter matters in an interview: "build or buy?", "where do your best engineers go?", and "how much architecture does this need?" all come down to classifying subdomains. Get the classification wrong and every downstream choice is wrong with it. Chapter 10's decision tree starts from this answer.</p>
+
+<!-- ============================================================ -->
+<h2>1 · Recall first</h2>
+
+<div class="recall" data-topic="warmup" data-title="Comparison table recall">
+  <p class="prompt">From memory, fill in the chapter's comparison table: for <strong>core</strong>, <strong>generic</strong>, and <strong>supporting</strong> subdomains, give the <em>competitive advantage</em>, <em>complexity</em>, <em>volatility</em>, and <em>solution strategy</em>.</p>
+  <textarea placeholder="Core: advantage … complexity … volatility … strategy …&#10;Generic: …&#10;Supporting: …"></textarea>
+  <div class="model">
+    <table>
+      <thead><tr><th></th><th>Core</th><th>Generic</th><th>Supporting</th></tr></thead>
+      <tbody>
+        <tr><td>Competitive advantage</td><td>Yes</td><td>No</td><td>No</td></tr>
+        <tr><td>Complexity</td><td>High</td><td>High</td><td>Low</td></tr>
+        <tr><td>Volatility</td><td>High</td><td>Low</td><td>Low</td></tr>
+        <tr><td>Solution</td><td>In-house</td><td>Buy / adopt</td><td>In-house or outsource</td></tr>
+      </tbody>
+    </table>
+    <ul class="rubric">
+      <li>Competitive advantage row correct</li>
+      <li>Complexity row correct (generic is <em>complex</em>, just already solved)</li>
+      <li>Volatility row correct</li>
+      <li>Solution row correct</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>2 · The ideas that matter</h2>
+
+<p><strong>Business domain</strong>: the company's main area of activity. <strong>Subdomains</strong>: the finer-grained areas of activity that together make it work. You <em>discover</em> subdomains by analyzing the business. You don't design them. <span class="cite">Ch. 1.</span></p>
+
+<ul>
+  <li><strong>Core</strong> is what the company does <em>differently</em> from its competitors. It doesn't have to be technical: if a company's edge is how it designs its products, the software around that may not be core at all. A core that is simple to build gives only a short-lived advantage, because competitors copy it.</li>
+  <li><strong>Generic</strong> is complex, but every company does it the same way, so it's solved. Authentication, payments, and accounting are typical. Buy or adopt.</li>
+  <li><strong>Supporting</strong> is needed but simple and not a differentiator, often CRUD or ETL. Build it cheaply or outsource it.</li>
+</ul>
+
+<p><strong>Finding the boundaries:</strong> start coarse, with the company's departments and organizational units. Then <em>distill</em>: one coarse subdomain can hide finer subdomains of different types. Stop when each subdomain is a set of <strong>coherent use cases</strong> (closely related use cases, typically involving the same actors and the same data). Distilling pays off most in the core, where the details decide where you invest.</p>
+
+<p class="cite">Evans's original framing of the same idea: the "Core Domain" and "Generic Subdomains" in the <a href="https://www.domainlanguage.com/ddd/reference/">DDD Reference</a> (Distillation section).</p>
+
+<!-- ============================================================ -->
+<h2>3 · Practice</h2>
+
+<div class="q" data-topic="strategic" data-answer="0">
+  <p class="stem">What separates a generic subdomain from a supporting one?</p>
+  <ol class="options">
+    <li>Generic is complex but solved; supporting is simple but specific</li>
+    <li>Generic is simple but specific; supporting is complex but solved</li>
+    <li>Generic gives a competitive advantage; supporting never gives any advantage</li>
+    <li>Generic is always outsourced; supporting is always built entirely in-house</li>
+  </ol>
+  <div class="explain">Neither one gives a competitive advantage. The difference is <strong>complexity</strong>. Generic subdomains are hard (think of writing your own payment processing), but they're <em>solved</em>, so you buy. Supporting subdomains are easy and specific to your company, so you build them cheaply. Supporting can be outsourced, but it doesn't have to be.</div>
+</div>
+
+<div class="q" data-topic="strategic" data-answer="1">
+  <p class="stem">A small furniture maker wins customers through its distinctive hand-built designs. It sells online through an off-the-shelf hosted e-commerce platform. The <strong>online store</strong> is a…</p>
+  <ol class="options">
+    <li>Core subdomain</li>
+    <li>Generic subdomain</li>
+    <li>Supporting subdomain</li>
+    <li>Bounded context</li>
+  </ol>
+  <div class="explain"><strong>Generic</strong>: running a web shop is complex but solved, and the maker buys it. The core subdomain here is <em>furniture design</em>, which isn't software at all. Core doesn't mean technical.</div>
+</div>
+
+<div class="q" data-topic="strategic" data-answer="0">
+  <p class="stem">A startup wants to outsource its core subdomain to save money. What's the strongest objection the chapter supports?</p>
+  <ol class="options">
+    <li>Its constant change demands tight, in-house domain knowledge</li>
+    <li>Outsourced code is always lower quality than in-house</li>
+    <li>Core subdomains are too simple to justify contracts</li>
+    <li>Generic vendors legally cannot implement core business logic</li>
+  </ol>
+  <div class="explain">Core subdomains are <strong>complex and volatile</strong>, and they're where the competitive advantage lives. Constant change needs domain knowledge close at hand, and handing the differentiator to outsiders is a strategic risk. Hence: in-house, with your best people.</div>
+</div>
+
+<div class="q" data-topic="strategic" data-answer="0">
+  <p class="stem">A founder says: "Our core subdomain is a simple form-and-table app. A competitor could build it in a week." What does the chapter imply?</p>
+  <ol class="options">
+    <li>A simple core gives only a short-lived advantage</li>
+    <li>Simple core subdomains are best implemented by vendors</li>
+    <li>Complexity is irrelevant; only its revenue really counts</li>
+    <li>Simple subdomains are automatically generic, whatever the strategy</li>
+  </ol>
+  <div class="explain">An advantage that's easy to copy won't last. Core subdomains are typically complex <em>because</em> they're hard to imitate. Generic means complex <em>and</em> solved, so simplicity doesn't make something generic.</div>
+</div>
+
+<div class="q" data-topic="strategic" data-answer="0">
+  <p class="stem">Where does the chapter suggest you start when identifying a company's subdomains?</p>
+  <ol class="options">
+    <li>The company's departments and other organizational units</li>
+    <li>The existing database schema and its tables</li>
+    <li>The microservices the engineering team already runs</li>
+    <li>The vendors the company already pays for</li>
+  </ol>
+  <div class="explain">Start <strong>coarse, from the organization</strong> (sales, marketing, customer service…), then distill. Database tables and running services are design artifacts. Subdomains come from the business.</div>
+</div>
+
+<div class="q" data-topic="strategic" data-answer="0">
+  <p class="stem">When should you stop breaking subdomains into finer ones?</p>
+  <ol class="options">
+    <li>When each is a set of coherent use cases</li>
+    <li>When each maps to exactly one single database table</li>
+    <li>When each can be owned by one single developer</li>
+    <li>When each is small enough to be a microservice</li>
+  </ol>
+  <div class="explain">Subdomains are <strong>sets of coherent use cases</strong>: closely related, typically sharing actors and data. Going finer adds no strategic information. The other three options are technical or organizational criteria, not business ones.</div>
+</div>
+
+<div class="q" data-topic="strategic" data-answer="0">
+  <p class="stem">At Hopwise, "Customer Support" looks like a supporting subdomain at the department level. But inside it is an in-house fraud-detection model that rivals can't match. Fraud detection is a…</p>
+  <ol class="options">
+    <li>Core subdomain</li>
+    <li>Generic subdomain</li>
+    <li>Supporting subdomain</li>
+    <li>Bounded context</li>
+  </ol>
+  <div class="explain">This is why you <strong>distill</strong>: a coarse subdomain can contain finer subdomains of different types. Fraud detection gives a real competitive edge, so it's <strong>core</strong>, even though the department around it isn't.</div>
+</div>
+
+<!-- ============================================================ -->
+<h2>4 · Interview scenario</h2>
+
+<div class="callout">
+<p><strong>Brewly</strong> sells coffee subscriptions. Its edge is <em>personalized roasts</em>: it adjusts each customer's roast profile from their taste feedback, and rivals can't match the results. Departments: <em>Roasting</em>, <em>Subscriptions &amp; Billing</em>, <em>Shipping</em> (labels through carrier APIs, plus letting customers pick delivery days), <em>Customer Support</em> (uses a ticketing tool), and <em>Marketing</em> (promo codes and referral credits).</p>
+</div>
+
+<div class="recall" data-topic="strategic" data-title="Scenario: Brewly subdomains">
+  <p class="prompt"><strong>(6 min)</strong> Start from the departments, then distill. List Brewly's subdomains, give each a type, and justify it in one line. Split at least one department into finer subdomains of <em>different</em> types.</p>
+  <textarea placeholder="Department → subdomains (type, why) …"></textarea>
+  <div class="model">
+    <table>
+      <thead><tr><th>Department</th><th>Subdomain</th><th>Type</th></tr></thead>
+      <tbody>
+        <tr><td>Roasting</td><td>Taste-profile personalization</td><td>Core: the stated edge</td></tr>
+        <tr><td></td><td>Roast batch scheduling</td><td>Supporting: needed, simple</td></tr>
+        <tr><td>Subscriptions &amp; Billing</td><td>Subscription plans &amp; pauses</td><td>Supporting</td></tr>
+        <tr><td></td><td>Card payments</td><td>Generic: buy</td></tr>
+        <tr><td>Shipping</td><td>Label generation via carriers</td><td>Generic: buy or adopt</td></tr>
+        <tr><td></td><td>Delivery-day selection</td><td>Supporting</td></tr>
+        <tr><td>Customer Support</td><td>Ticketing</td><td>Generic: off-the-shelf tool</td></tr>
+        <tr><td>Marketing</td><td>Promo codes &amp; referrals</td><td>Supporting (core only if it were a real differentiator)</td></tr>
+      </tbody>
+    </table>
+    <p class="small">Defensible variations are fine. In an interview, the <em>justification</em> is what gets scored.</p>
+    <ul class="rubric">
+      <li>Started from the departments, then distilled</li>
+      <li>Taste personalization as core, justified by competitive edge</li>
+      <li>Payments, shipping labels, and ticketing as generic (buy)</li>
+      <li>Plans, delivery days, and promos as supporting</li>
+      <li>Split at least one department into subdomains of different types</li>
+      <li>Stopped at coherent use cases, not at technical components</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>Your results</h2>
+<div id="scoreboard" class="scoreboard"></div>
+<p>Copy your results and paste them into the chat. Next up is <strong>ch. 2, Discovering Domain Knowledge</strong>. It will open with spaced-review questions from this chapter.</p>
+
+<div class="callout source">
+<p><strong>Primary source:</strong> <a href="https://www.oreilly.com/library/view/learning-domain-driven-design/9781098100124/">Khononov, <em>Learning Domain-Driven Design</em>, ch. 1</a>. Re-read the subdomain comparison and the two worked example companies at the end, then try the ch. 1 exercises before checking Appendix B.</p>
+</div>
+
+<div class="callout ask">
+<p><strong>Questions?</strong> Ask me in the chat. For example: "Could promo codes ever be core?" or "Is a recommendation engine always core?" Arguing about borderline classifications is good interview practice.</p>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

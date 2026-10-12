@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch. 11: Evolving design decisions</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-lesson="0011-evolving-design-decisions">
+
+<nav class="crumbs"><a href="../index.html">Course map</a> · <a href="../reference/glossary.html">Glossary</a> · <a href="../reference/heuristics.html">Heuristics</a> · Prev: <a href="0010-design-heuristics.html">Ch. 10</a> · Next: <a href="0012-eventstorming.html">Ch. 12</a></nav>
+
+<div class="kicker">Chapter 11</div>
+<h1>Evolving design decisions</h1>
+<p class="subtitle">Every decision from ch. 10 has an expiry date. Learn to spot when the business has moved under your design.</p>
+
+<div class="meta">
+  <span>≈ 12 minutes</span>
+  <span>2 review + 7 questions + 1 scenario</span>
+  <span><span class="tag practice">Part III</span></span>
+</div>
+
+<!-- ============================================================ -->
+<h2>0 · Spaced review: ch. 1 &amp; 10</h2>
+
+<div class="q" data-topic="practice" data-answer="1">
+  <p class="stem">Your business logic is a set of transaction scripts. Which test-suite shape do the heuristics recommend?</p>
+  <ol class="options">
+    <li>Testing pyramid</li>
+    <li>Reversed pyramid</li>
+    <li>Testing diamond</li>
+    <li>Testing trophy</li>
+  </ol>
+  <div class="explain">There's little logic to unit test, so weight the suite toward end-to-end tests: a <strong>reversed pyramid</strong>. <span class="cite">Ch. 10.</span></div>
+</div>
+
+<div class="q" data-topic="strategic" data-answer="3">
+  <p class="stem">Which subdomain type is complex but already solved, so it should be bought or adopted?</p>
+  <ol class="options">
+    <li>Core subdomain</li>
+    <li>Supporting subdomain</li>
+    <li>Bounded context</li>
+    <li>Generic subdomain</li>
+  </ol>
+  <div class="explain"><strong>Generic</strong>: complex, the same for every company, and solved. <span class="cite">Ch. 1.</span></div>
+</div>
+
+<!-- ============================================================ -->
+<h2>1 · Recall first</h2>
+
+<div class="recall" data-topic="warmup" data-title="Evolution recall">
+  <p class="prompt">Without looking: (a) Name at least four ways a subdomain can change type, with a plausible trigger for each. (b) When a supporting subdomain becomes core, what should change in its implementation and its integrations? (c) Besides the business domain, what else can change and force design changes?</p>
+  <textarea placeholder="(a) …&#10;(b) …&#10;(c) …"></textarea>
+  <div class="model">
+    <p>(a) <strong>Core → generic</strong>: competitors catch up or a product commoditizes it. <strong>Generic → core</strong>: the company builds a better-than-market version that becomes an edge. <strong>Supporting → core</strong>: a simple area turns into a differentiator. <strong>Core → supporting</strong>: it stops being an edge but stays specific to you. <strong>Supporting → generic</strong>: an off-the-shelf solution appears. <strong>Generic → supporting</strong>: you replace a bought product with a simpler in-house version.<br>
+    (b) Re-run the decision tree. Its logic probably grows, so move it toward a domain model. Revisit the integration patterns as well, for example protecting it with an anticorruption layer instead of conforming to others, and give it your strongest people.<br>
+    (c) <strong>Organization</strong> (teams split, move, or grow), <strong>domain knowledge</strong> (you learn the model was wrong), and <strong>growth</strong> (subdomains, contexts, or aggregates getting too big).</p>
+    <ul class="rubric">
+      <li>At least four type transitions with triggers</li>
+      <li>Implementation change for supporting → core</li>
+      <li>Integration-pattern change mentioned</li>
+      <li>Organization, knowledge, and growth as other drivers</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>2 · The ideas that matter</h2>
+
+<p><strong>Change is the norm.</strong> Design decisions are made with what you know at the time, and the business keeps moving. The chapter looks at four kinds of change: the business domain, the organization, domain knowledge, and growth. <span class="cite">Ch. 11.</span></p>
+
+<p><strong>Subdomain types change.</strong> Any transition between core, generic, and supporting is possible. When one happens, the <em>strategic</em> choices (build or buy, who owns it, integration patterns) and the <em>tactical</em> choices (business-logic pattern, architecture, testing) should be revisited using the ch. 10 heuristics.</p>
+
+<p><strong>Tactical evolution.</strong> As logic gets more complex, implementations move along the same path as the decision tree: transaction script → active record → domain model → event-sourced domain model. Each step is a refactoring of the existing code, not a rewrite. Moving to event sourcing raises a special question: what about the history you never recorded? You either <em>approximate</em> past events from the current state, or start the stream with a single <em>migration event</em> that represents the current state. Either way, you can't invent history you don't have.</p>
+
+<p><strong>Organizational change.</strong> Integration patterns depend on how well teams can communicate. When teams split, grow, or move to different locations, a partnership may need to become customer–supplier, or even separate ways.</p>
+
+<p><strong>Domain knowledge and growth.</strong> New insight can show that a boundary or model is wrong, so refactor it. As systems grow, keep distilling: split subdomains that have become too broad, split bounded contexts that hold several models, and shrink aggregates back to what strong consistency actually needs.</p>
+
+<p class="cite">See also <a href="https://martinfowler.com/eaaDev/EventSourcing.html">Fowler, "Event Sourcing"</a>.</p>
+
+<!-- ============================================================ -->
+<h2>3 · Practice</h2>
+
+<div class="q" data-topic="practice" data-answer="1">
+  <p class="stem">Your in-house <em>supporting</em> subdomain for shift rostering is simple. A mature SaaS product now does exactly the same thing. What changed?</p>
+  <ol class="options">
+    <li>Supporting became core</li>
+    <li>Supporting became generic</li>
+    <li>Generic became supporting</li>
+    <li>Core became generic</li>
+  </ol>
+  <div class="explain">A ready-made solution now exists, so it's effectively <strong>generic</strong>. Consider buying it instead of maintaining your own.</div>
+</div>
+
+<div class="q" data-topic="practice" data-answer="2">
+  <p class="stem">A coupon module was a simple supporting subdomain. Marketing now uses its personalized offers to win customers, and its rules keep growing. What should happen to its implementation?</p>
+  <ol class="options">
+    <li>Keep the transaction scripts and add more tests</li>
+    <li>Replace it immediately with a generic coupon vendor</li>
+    <li>Re-run the heuristics; evolve toward a domain model</li>
+    <li>Split it into one microservice per coupon type</li>
+  </ol>
+  <div class="explain">Supporting → <strong>core</strong>: the logic is now complex and it's a differentiator. Re-run the decision tree and <strong>refactor gradually</strong> toward a domain model. Buying a vendor product would give away the new advantage.</div>
+</div>
+
+<div class="q" data-topic="practice" data-answer="0">
+  <p class="stem">You're migrating an existing state-based aggregate to event sourcing, but past changes were never recorded. Which approach fits the chapter?</p>
+  <ol class="options">
+    <li>Start streams with an event representing current state</li>
+    <li>Invent detailed history from the product team's memory</li>
+    <li>Keep both models forever and compare them nightly</li>
+    <li>Delete old data and start every stream empty</li>
+  </ol>
+  <div class="explain">You can't recover history that was never captured. Begin each stream with a <strong>migration event</strong> that carries the current state, or approximate the past from it. Be explicit that the early history is synthetic.</div>
+</div>
+
+<div class="q" data-topic="practice" data-answer="3">
+  <p class="stem">Two teams in a <em>partnership</em> are split across continents and time zones, and coordination keeps breaking down. Which change fits best?</p>
+  <ol class="options">
+    <li>Merge both bounded contexts into one shared context</li>
+    <li>Add a shared kernel to coordinate even more</li>
+    <li>Keep the partnership and schedule more synchronization meetings</li>
+    <li>Move toward customer–supplier, or perhaps even separate ways</li>
+  </ol>
+  <div class="explain">A partnership depends on good communication. When that goes, move to a pattern that needs less coordination: <strong>customer–supplier</strong> (conformist, ACL, or OHS), or <strong>separate ways</strong>. A shared kernel needs even <em>more</em> coordination.</div>
+</div>
+
+<div class="q" data-topic="practice" data-answer="1">
+  <p class="stem">An <code>Order</code> aggregate has grown to include shipping history, reviews, and loyalty points, and saving it causes lock contention. What's the remedy?</p>
+  <ol class="options">
+    <li>Add database indexes to speed up every save</li>
+    <li>Move out data that doesn't need strong consistency</li>
+    <li>Turn the whole aggregate into its own microservice</li>
+    <li>Switch the aggregate to active record for simplicity</li>
+  </ol>
+  <div class="explain">An aggregate should contain only data that must be <strong>strongly consistent</strong> with its business rules. Move everything else into other aggregates referenced by ID, and accept eventual consistency between them.</div>
+</div>
+
+<div class="q" data-topic="practice" data-answer="0">
+  <p class="stem">A team bought a generic CRM, but its fixed workflows now limit how the company sells, and selling well is becoming its edge. This transition is…</p>
+  <ol class="options">
+    <li>Generic becoming core</li>
+    <li>Core becoming supporting</li>
+    <li>Supporting becoming generic</li>
+    <li>Generic becoming supporting</li>
+  </ol>
+  <div class="explain">An area that was bought off the shelf is turning into a differentiator: <strong>generic → core</strong>. That justifies building in-house, with a domain model.</div>
+</div>
+
+<div class="q" data-topic="practice" data-answer="2">
+  <p class="stem">Which list contains <em>only</em> drivers of design change that the chapter discusses?</p>
+  <ol class="options">
+    <li>Framework upgrades, cloud migrations, and new hires</li>
+    <li>Database vendors, programming languages, and IDE choices</li>
+    <li>Business domain, organization, domain knowledge, and growth</li>
+    <li>Sprint velocity, code coverage, and deployment frequency</li>
+  </ol>
+  <div class="explain">The chapter is about changes in the <strong>business domain, organization, domain knowledge, and growth</strong>, which are the forces that should drive DDD decisions. The other lists are technical or process concerns.</div>
+</div>
+
+<!-- ============================================================ -->
+<h2>4 · Interview scenario</h2>
+
+<div class="callout">
+<p><strong>CourseCraft</strong> is an online-learning marketplace. Three years ago: <em>course catalog</em> (core, a domain model), <em>video hosting</em> (built in-house, a supporting subdomain), and <em>certificates</em> (transaction scripts). Today: video-hosting SaaS products are excellent and cheap. Rivals have copied the catalog. Employers now hire based on CourseCraft's <em>skill-verified certificates</em>, whose rules for proctoring, expiry, and re-validation keep growing. The certificates team was also split in two, across two offices.</p>
+</div>
+
+<div class="recall" data-topic="practice" data-title="Scenario: CourseCraft evolution">
+  <p class="prompt"><strong>(7 min)</strong> For each area, state the type transition and what you would change, both strategically and tactically. Then say what you'd do about the certificates team split.</p>
+  <textarea placeholder="Video hosting: …&#10;Catalog: …&#10;Certificates: …&#10;Team split: …"></textarea>
+  <div class="model">
+    <table>
+      <thead><tr><th>Area</th><th>Transition</th><th>Change</th></tr></thead>
+      <tbody>
+        <tr><td>Video hosting</td><td>Supporting → generic</td><td>Migrate to SaaS. Wrap it behind an integration so it can be swapped.</td></tr>
+        <tr><td>Catalog</td><td>Core → supporting (or generic)</td><td>Stop investing heavily in it. Simplify it over time and move the best people elsewhere.</td></tr>
+        <tr><td>Certificates</td><td>Supporting → core</td><td>Refactor transaction scripts → domain model. Consider event sourcing for an auditable history of verifications. Protect it with an ACL and expose an OHS.</td></tr>
+      </tbody>
+    </table>
+    <p><strong>Team split:</strong> give each team its own bounded context, splitting the context along a seam in the language. Integrate them as customer–supplier, not as a cross-office partnership.</p>
+    <ul class="rubric">
+      <li>Video hosting → generic, and buy</li>
+      <li>Catalog demoted from core, with investment reduced</li>
+      <li>Certificates → core, with a domain-model refactoring</li>
+      <li>Considered event sourcing for certificate history (audit)</li>
+      <li>Revisited integration patterns, not only implementation</li>
+      <li>Handled the team split with a pattern that needs less coordination</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>Your results</h2>
+<div id="scoreboard" class="scoreboard"></div>
+<p>Copy your results and paste them into the chat. Next up is <strong>ch. 12, EventStorming</strong>: a workshop for discovering all of this with the business, quickly.</p>
+
+<div class="callout source">
+<p><strong>Primary source:</strong> <a href="https://www.oreilly.com/library/view/learning-domain-driven-design/9781098100124/">Khononov, <em>Learning Domain-Driven Design</em>, ch. 11</a>. Re-read the subdomain-transition examples and the section on migrating to event sourcing.</p>
+</div>
+
+<div class="callout ask">
+<p><strong>Questions?</strong> Ask me in the chat. For example: "How do I detect early that a supporting subdomain is turning core?" or "How would I sell a refactor to management in an interview answer?"</p>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

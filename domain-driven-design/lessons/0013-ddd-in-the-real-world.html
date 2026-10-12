@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ch. 13: Domain-driven design in the real world</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body data-lesson="0013-ddd-in-the-real-world">
+
+<nav class="crumbs"><a href="../index.html">Course map</a> · <a href="../reference/glossary.html">Glossary</a> · Prev: <a href="0012-eventstorming.html">Ch. 12</a> · Next: <a href="0014-microservices.html">Ch. 14</a></nav>
+
+<div class="kicker">Chapter 13</div>
+<h1>Domain-driven design in the real world</h1>
+<p class="subtitle">Most systems you'll meet are brownfield. DDD is still useful there, applied gradually and pragmatically.</p>
+
+<div class="meta">
+  <span>≈ 12 minutes</span>
+  <span>2 review + 7 questions + 1 scenario</span>
+  <span><span class="tag practice">Part III</span></span>
+</div>
+
+<!-- ============================================================ -->
+<h2>0 · Spaced review: ch. 3 &amp; 12</h2>
+
+<div class="q" data-topic="strategic" data-answer="1">
+  <p class="stem">Which ownership arrangement for bounded contexts is <em>not</em> allowed?</p>
+  <ol class="options">
+    <li>One team owning several bounded contexts</li>
+    <li>Two teams sharing one bounded context</li>
+    <li>One team owning one bounded context</li>
+    <li>Each context in its own repository</li>
+  </ol>
+  <div class="explain">A bounded context is owned by <strong>exactly one team</strong>. One team can own several. <span class="cite">Ch. 3.</span></div>
+</div>
+
+<div class="q" data-topic="practice" data-answer="2">
+  <p class="stem">An EventStorming sticky reads: <em>"Whenever stock drops below the threshold, reorder."</em> It's a…</p>
+  <ol class="options">
+    <li>Command</li>
+    <li>Aggregate</li>
+    <li>Policy</li>
+    <li>Event</li>
+  </ol>
+  <div class="explain">"Whenever [event], then [command]" is a <strong>policy</strong>. <span class="cite">Ch. 12.</span></div>
+</div>
+
+<!-- ============================================================ -->
+<h2>1 · Recall first</h2>
+
+<div class="recall" data-topic="warmup" data-title="Brownfield recall">
+  <p class="prompt">Without looking: (a) How do you analyze a legacy system before you change anything? (b) What's the modernization order: logical vs physical boundaries, and which subdomains first? (c) What is the strangler fig pattern? (d) What is "undercover DDD"?</p>
+  <textarea placeholder="(a) …&#10;(b) …&#10;(c) …&#10;(d) …"></textarea>
+  <div class="model">
+    <p>(a) <strong>Strategic analysis</strong>: understand the business domain and classify its subdomains, then map the current design. Which components implement which subdomains? Draw a context map of how they integrate. Then assess the tactical design of each component.<br>
+    (b) Start with <strong>logical</strong> boundaries: reorganize the code into modules aligned with subdomains or bounded contexts. Move to <strong>physical</strong> boundaries later. Prioritize by business value, which usually means core subdomains whose current design hurts the most.<br>
+    (c) <strong>Strangler fig</strong>: build new components next to the legacy system, route more and more functionality to them through a façade, and retire the old system once nothing is left.<br>
+    (d) Applying DDD's principles and patterns <strong>without selling the label</strong>: just use the ubiquitous language, boundaries, and patterns where they help.</p>
+    <ul class="rubric">
+      <li>Business domain analysis before code changes</li>
+      <li>Mapping the current design / context map</li>
+      <li>Logical before physical; prioritize by value</li>
+      <li>Strangler fig described correctly</li>
+      <li>Undercover DDD described</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>2 · The ideas that matter</h2>
+
+<p><strong>DDD isn't only for greenfield projects.</strong> Most real work is on existing systems. DDD's value there is in letting the business domain drive design decisions, not in adopting every pattern at once. <span class="cite">Ch. 13.</span></p>
+
+<p><strong>Analyze first.</strong> Understand the business strategy and classify the subdomains. Then explore the current design: which components implement which subdomains, how they're integrated (draw a context map), and how each one is implemented tactically. Mismatches show you where to act. A core subdomain trapped in a big ball of mud is a strong candidate.</p>
+
+<p><strong>Modernize gradually.</strong> Start with <em>logical</em> boundaries by refactoring modules and namespaces to align with subdomains and contexts. Extracting <em>physical</em> services comes later. Prioritize by business value, not by technical irritation.</p>
+
+<p><strong>Strategic tools.</strong> Use the <strong>strangler fig</strong> pattern to replace legacy components incrementally behind a façade. During the migration, the old and new components may temporarily share a database, but only as a deliberate, short-lived exception. Use <strong>anticorruption layers</strong> to keep legacy models out of new code.</p>
+
+<p><strong>Tactical modernization.</strong> Refactor logic gradually toward the pattern the heuristics call for. For example, move from a transaction script to a domain model by first introducing value objects, then aggregates.</p>
+
+<p><strong>Pragmatism and "undercover DDD".</strong> You don't need management buy-in for the <em>term</em> DDD. Apply its ideas (ubiquitous language, bounded contexts, the patterns) where they pay off, and let the results make the case.</p>
+
+<p class="cite">See also <a href="https://martinfowler.com/bliki/StranglerFigApplication.html">Fowler, "StranglerFigApplication"</a>.</p>
+
+<!-- ============================================================ -->
+<h2>3 · Practice</h2>
+
+<div class="q" data-topic="practice" data-answer="2">
+  <p class="stem">You join a team with a 10-year-old monolith. What's your first DDD step?</p>
+  <ol class="options">
+    <li>Rewrite everything as microservices from scratch immediately</li>
+    <li>Introduce aggregates into every existing module first</li>
+    <li>Analyze the business domain and its subdomains</li>
+    <li>Pick a new framework and migrate gradually</li>
+  </ol>
+  <div class="explain">Start with <strong>strategic analysis</strong>: what the business does and which subdomains are core. Without that, you can't tell where modernization effort pays off.</div>
+</div>
+
+<div class="q" data-topic="practice" data-answer="0">
+  <p class="stem">Which modernization order does the chapter recommend?</p>
+  <ol class="options">
+    <li>Logical boundaries first, then physical boundaries</li>
+    <li>Physical boundaries first, then logical boundaries</li>
+    <li>Both simultaneously, in one big release</li>
+    <li>Only physical boundaries; logical are optional</li>
+  </ol>
+  <div class="explain">Reorganizing modules inside the monolith is cheap and reversible, and it shows whether your boundaries are right <em>before</em> you pay for network calls and separate deployments.</div>
+</div>
+
+<div class="q" data-topic="practice" data-answer="3">
+  <p class="stem">New functionality is built beside the legacy system, a façade routes more and more requests to it, and the legacy system eventually disappears. This is the…</p>
+  <ol class="options">
+    <li>Big-bang rewrite</li>
+    <li>Shared kernel</li>
+    <li>Bubble context</li>
+    <li>Strangler fig</li>
+  </ol>
+  <div class="explain">The <strong>strangler fig</strong> grows around its host until the host is gone. It's incremental, low-risk replacement.</div>
+</div>
+
+<div class="q" data-topic="practice" data-answer="1">
+  <p class="stem">During a strangler migration, the new and legacy components share one database. How does the chapter treat this?</p>
+  <ol class="options">
+    <li>Strictly forbidden under any circumstances whatsoever</li>
+    <li>A temporary exception during the migration</li>
+    <li>The recommended permanent target architecture afterwards</li>
+    <li>Only acceptable for generic subdomain components</li>
+  </ol>
+  <div class="explain">Sharing a database is normally a coupling smell. During a strangler migration it's tolerated as a <strong>deliberate, temporary</strong> step, and removed once the legacy component is retired.</div>
+</div>
+
+<div class="q" data-topic="practice" data-answer="0">
+  <p class="stem">With limited budget, which legacy area should you modernize first?</p>
+  <ol class="options">
+    <li>The core subdomain whose design hurts most</li>
+    <li>The generic subdomain with the oldest code</li>
+    <li>The supporting subdomain engineers find most annoying</li>
+    <li>Whichever module has the lowest test coverage</li>
+  </ol>
+  <div class="explain">Prioritize by <strong>business value</strong>. Core subdomains are where good design pays off. Generic ones are better replaced with bought solutions, and engineers' annoyance doesn't measure value.</div>
+</div>
+
+<div class="q" data-topic="practice" data-answer="2">
+  <p class="stem">Management is skeptical of "DDD". What does the chapter suggest?</p>
+  <ol class="options">
+    <li>Abandon DDD until leadership formally approves it</li>
+    <li>Present a DDD training plan to executives</li>
+    <li>Apply DDD's practices without selling the label</li>
+    <li>Adopt DDD only in brand-new greenfield projects</li>
+  </ol>
+  <div class="explain"><strong>Undercover DDD</strong>: the value is in the practices (language, boundaries, patterns), not the name. Use them where they help.</div>
+</div>
+
+<div class="q" data-topic="practice" data-answer="1">
+  <p class="stem">A new bounded context must read customer data from the legacy monolith, whose model is a mess. To keep the new model clean, use…</p>
+  <ol class="options">
+    <li>Conformist relationship</li>
+    <li>Anticorruption layer</li>
+    <li>Shared kernel</li>
+    <li>Separate ways</li>
+  </ol>
+  <div class="explain">An <strong>anticorruption layer</strong> translates the legacy model at the boundary, so the new context's model isn't shaped by the legacy one. It's a standard companion to the strangler fig.</div>
+</div>
+
+<!-- ============================================================ -->
+<h2>4 · Interview scenario</h2>
+
+<div class="callout">
+<p><strong>"Here's our legacy system. Where would you start?"</strong> <em>MediStock</em> distributes medical supplies. It has a 12-year-old monolith with one huge database. Inside it: an <em>order-routing</em> module that picks the cheapest compliant warehouse (the company's edge, but tangled and full of bugs), <em>invoicing</em> (works fine), an in-house <em>user-management</em> module, and <em>reporting</em> (slow, but nobody complains). Leadership has never heard of DDD and wants "fewer incidents in routing".</p>
+</div>
+
+<div class="recall" data-topic="practice" data-title="Scenario: MediStock modernization">
+  <p class="prompt"><strong>(7 min)</strong> Give a step-by-step modernization plan: analysis, priorities, logical vs physical boundaries, which strategic and tactical tools you'd use, and how you'd pitch it to leadership.</p>
+  <textarea placeholder="1. …&#10;2. …&#10;…"></textarea>
+  <div class="model">
+    <ol>
+      <li><strong>Analyze</strong>: classify subdomains. Routing is core, invoicing supporting, user management generic, reporting supporting. Map which modules implement what and how they couple (a context map).</li>
+      <li><strong>Prioritize routing</strong>: it's core and it hurts the most. Leave invoicing alone. Plan to replace user management with an identity product.</li>
+      <li><strong>Logical boundaries first</strong>: pull routing into its own module with an explicit interface inside the monolith.</li>
+      <li><strong>Tactical refactoring</strong>: move routing toward a domain model, introducing value objects first, then aggregates. Add unit tests as you go.</li>
+      <li><strong>Physical extraction</strong> later: <strong>strangler fig</strong> behind a façade, with an <strong>ACL</strong> against the legacy model. Accept a shared database only temporarily.</li>
+      <li><strong>Pitch</strong>: frame it as "fewer routing incidents, delivered incrementally", which is undercover DDD. No jargon is needed.</li>
+    </ol>
+    <ul class="rubric">
+      <li>Started with business/subdomain analysis</li>
+      <li>Prioritized routing (core) by business value</li>
+      <li>Suggested buying a product for user management (generic)</li>
+      <li>Logical boundaries before physical extraction</li>
+      <li>Gradual tactical refactoring toward a domain model</li>
+      <li>Strangler fig + ACL, shared database only temporarily</li>
+      <li>Pitched it in business terms (undercover DDD)</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>Your results</h2>
+<div id="scoreboard" class="scoreboard"></div>
+<p>Copy your results and paste them into the chat. Next up is <strong>ch. 14, Microservices</strong>: how bounded contexts, subdomains, and service boundaries relate.</p>
+
+<div class="callout source">
+<p><strong>Primary source:</strong> <a href="https://www.oreilly.com/library/view/learning-domain-driven-design/9781098100124/">Khononov, <em>Learning Domain-Driven Design</em>, ch. 13</a>. Re-read the strategic analysis and modernization strategy sections, and the part on undercover DDD.</p>
+</div>
+
+<div class="callout ask">
+<p><strong>Questions?</strong> Ask me in the chat. For example: "How do I find bounded contexts hiding in a big ball of mud?" or "When is a rewrite actually justified?"</p>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>
